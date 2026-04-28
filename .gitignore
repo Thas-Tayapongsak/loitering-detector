@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+
+# Model Weights
+*.pt
+*.onnx
+*.engine
+*.pth
+*.safetensors
+
+# Large Files
+*.mp4
+*.avi
+
+# Local Configuration
+.env
+.env.*
+system_config.yml
+system_config.debug.yml
+*.log
+
+# Cache
+.torchjit/
+logs/
+outputs/
+work_dirs/
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
+
+# Project Specific
+.agents/
+sdlc-studio/
+documents/

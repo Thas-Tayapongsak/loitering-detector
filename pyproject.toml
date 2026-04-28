@@ -1,0 +1,47 @@
+[project]
+name = "loitering-detector"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "onnx>=1.21.0",
+    "onnxruntime>=1.24.4",
+    "onnxslim>=0.1.91",
+    "pydantic>=2.12.5",
+    "pyyaml>=6.0.3",
+    "redis>=7.4.0",
+    "ultralytics>=8.4.37",
+    "lap>=0.5.12",
+    "yt-dlp>=2026.3.17",
+]
+
+[project.optional-dependencies]
+gui = [
+    "opencv-python>=4.13.0.92",
+]
+headless = [
+    "opencv-python-headless>=4.13.0.92",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-mock>=3.15.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.11",
+    "mypy>=1.20.1",
+    "pip-audit>=2.10.0",
+    "vulture>=2.16",
+    "radon>=6.0.1",
+]
+
+[project.scripts]
+loitering-detector = "loitering_detector.scripts.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/loitering_detector"]

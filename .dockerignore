@@ -1,0 +1,46 @@
+# Git
+.git/
+.gitignore
+.github/
+
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Cache and Temp
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+*.log
+
+# Documentation
+documents/
+
+# SDLC and Project Management
+sdlc-studio/
+.agents/
+
+# IDEs
+.vscode/
+.idea/
+
+# Local Config Overrides
+.env*
+system_config.debug.yml
+system_config.yml
+system_config.example.yml
+
+# Docker and Compose
+docker/
+docker-compose*.yml
+
+# Weights and Models (Mounted from host at runtime for optimization)
+*.pt
+*.onnx
+
+# Build and Versioning
+.python-version

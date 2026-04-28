@@ -1,0 +1,35 @@
+services:
+  redis:
+    image: redis:7.4.0-alpine
+    container_name: loitering-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+      target: production
+    container_name: loitering-worker
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - ./system_config.docker_example.yml:/app/system_config.yml:ro
+      # Mount weights from host to avoid large image sizes
+      - ./yolo26n.pt:/app/yolo26n.pt:ro
+    restart: unless-stopped
+
+volumes:
+  redis_data:

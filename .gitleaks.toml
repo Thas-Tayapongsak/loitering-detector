@@ -1,0 +1,24 @@
+# .gitleaks.toml
+# Gitleaks configuration for loitering-detector.
+#
+# Scanning strategy: staged files only.
+# Run AFTER `git add .` and BEFORE `git commit`:
+#
+#   gitleaks detect --staged --config .gitleaks.toml
+#
+# Because we scan only staged files (controlled by .gitignore allowlist),
+# vendored directories (.venv/, .agents/, documents/) are never staged
+# and therefore never scanned. No broad exclusions are needed.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Suppress known false positives within project source files"
+paths = [
+    # Test fixtures may contain example/mock credentials as test inputs.
+    # These are not real secrets — they are deliberately fake values used
+    # to verify that the detection pipeline rejects bad configuration.
+    '''tests/.*fixtures''',
+    '''tests/.*conftest''',
+]
