@@ -34,6 +34,7 @@ dev = [
     "pip-audit>=2.10.0",
     "vulture>=2.16",
     "radon>=6.0.1",
+    "black>=23.12.1",
 ]
 
 [project.scripts]
