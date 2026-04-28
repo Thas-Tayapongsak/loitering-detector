@@ -65,12 +65,49 @@ Scopes map to specific modules or functional areas:
 
 ---
 
-## 3. Development Workflow
+## 3. Development Workflows
 
-1.  **Sync**: Ensure your local `dev` branch is up to date with `origin/dev`.
-2.  **Branch**: Create a new feature/fix branch from `dev`.
-3.  **Develop**: Make your changes and commit using the convention above.
-4.  **Test**: Run the test suite (`pytest`) to ensure no regressions.
-5.  **PR**: Open a Pull Request on GitHub from your branch to `dev`.
-6.  **Review**: Address review comments.
-7.  **Merge**: Once approved, merge into `dev`.
+We use two primary workflows to move code through the repository.
+
+### Workflow A: Adding a Feature or Fix to `dev`
+**Purpose**: Daily development work.
+
+1.  **Sync**: Update your local `dev` branch.
+    ```bash
+    git checkout dev
+    git pull origin dev
+    ```
+2.  **Branch**: Create a "short-lived" feature branch.
+    ```bash
+    git checkout -b feature/<id>-<slug>
+    ```
+3.  **Develop**: Commit changes using the [Commit Convention](#2-commit-message-convention).
+4.  **Push**: `git push -u origin feature/<id>-<slug>`
+5.  **PR**: Open a Pull Request from your branch **into `dev`**.
+6.  **Merge**: Once tests pass and you are satisfied, merge into `dev`.
+7.  **Cleanup**: Delete the feature branch locally and on remote.
+
+### Workflow B: Releasing `dev` to `main`
+**Purpose**: Deploying stable code to production.
+
+1.  **PR**: Open a Pull Request from **`dev` into `main`**.
+2.  **Review**: At least **1 peer approval** is required for `main`.
+3.  **Merge**: Merge the PR on GitHub. **Note**: The `dev` branch is NEVER deleted.
+4.  **Tag**: Create a permanent version snapshot (Tag) on `main`.
+    ```bash
+    git checkout main
+    git pull origin main
+    git tag -a vX.X.X -m "Release version X.X.X"
+    git push origin vX.X.X
+    ```
+
+---
+
+## 4. FAQ & Pro-Tips
+
+*   **Branch Lifecycle**: `main` and `dev` are permanent (long-lived). Only `feature/` and `fix/` branches are deleted.
+*   **Why Tags?**: Branches move; tags don't. A tag like `v0.3.0` is a permanent bookmark of exactly what was in production at that version.
+*   **Protection Rules**:
+    *   `main`: Requires a PR + 1 Approval.
+    *   `dev`: Requires a PR but set to **0 required approvals**. This ensures you use the PR interface (for CI checks) but can move fast.
+
