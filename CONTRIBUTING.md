@@ -40,6 +40,7 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 | `docs` | Documentation changes only. |
 | `refactor` | Code changes that neither fix a bug nor add a feature. |
 | `test` | Adding missing tests or correcting existing tests. |
+| `style` | Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc). |
 | `ci` | Changes to CI/CD configuration files and scripts. |
 
 ### Scopes
@@ -62,6 +63,7 @@ Scopes map to specific modules or functional areas:
 *   `fix(stream): resolve memory leak in video consumer`
 *   `chore(repo): finalize initial repository initialization`
 *   `docs(core): clarify alert escalation logic in alerts.py`
+*   `style: format codebase with black`
 
 ---
 
