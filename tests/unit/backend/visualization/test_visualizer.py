@@ -7,7 +7,6 @@ import pytest
 
 from loitering_detector.visualization.visualizer import DebugVisualizer as Visualizer
 
-
 # Constants
 
 ESC_KEY = 27

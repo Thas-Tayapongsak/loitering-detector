@@ -15,7 +15,6 @@ from loitering_detector.config import (
 from loitering_detector.stream.config import StreamConfig
 from loitering_detector.detection.config import DetectionConfig
 
-
 # Constants
 
 STREAM_1_ID = 1

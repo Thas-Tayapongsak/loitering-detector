@@ -15,7 +15,6 @@ from loitering_detector.config import (
     get_config,
 )
 
-
 # Constants
 
 REDIS_HOST = "localhost"
