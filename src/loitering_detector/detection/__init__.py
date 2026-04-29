@@ -18,8 +18,8 @@ YOLODetection
 
 import logging
 
-from .manager import DetectionManager
 from .config import DetectionConfig
+from .manager import DetectionManager
 from .strategy import DetectionStrategy, YOLODetection
 
 __all__ = [

@@ -14,8 +14,8 @@ StreamConfig
 
 import logging
 
-from .manager import StreamManager
 from .config import StreamConfig
+from .manager import StreamManager
 
 __all__ = [
     "StreamManager",

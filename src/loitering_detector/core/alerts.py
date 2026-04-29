@@ -19,7 +19,6 @@ __all__ = ["AlertManager", "AlertConfig"]
 import logging
 import threading
 import time
-from typing import TypeAlias
 
 from loitering_detector.config import AlertConfig
 
@@ -27,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 # Type alias for the internal alert state
 # {stream_id: {track_id: last_alert_time}}
-AlertState: TypeAlias = dict[int, dict[int, float]]
+type AlertState = dict[int, dict[int, float]]
 
 
 class AlertManager:

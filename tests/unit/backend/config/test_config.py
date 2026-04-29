@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from loitering_detector.config import (
     AlertConfig,
@@ -101,7 +102,7 @@ class TestRedisConfig:
         Then: a validation error is raised
         """
         # Then: initializing without a port raises an exception
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             RedisConfig(host=REDIS_HOST)  # port is required
 
 
@@ -121,7 +122,7 @@ class TestAlertConfig:
         assert config.interval == 0.0
 
     def test_negative_interval_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             AlertConfig(interval=-1.0)
 
 
@@ -179,7 +180,7 @@ class TestLoiteringConfig:
         Then: a validation error is raised
         """
         # Then: values > 1.0 raise an exception
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             LoiteringConfig(
                 threshold=60.0,
                 cooldown_percentage=1.5,

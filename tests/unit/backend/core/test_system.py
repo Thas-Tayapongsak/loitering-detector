@@ -1,6 +1,6 @@
 """Tests for the LoiteringDetectionSystem orchestrator, which coordinates streams, detection, and alerting."""
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import numpy as np
 import pytest
@@ -12,8 +12,8 @@ from loitering_detector.config import (
     RedisConfig,
     SystemConfig,
 )
-from loitering_detector.stream.config import StreamConfig
 from loitering_detector.detection.config import DetectionConfig
+from loitering_detector.stream.config import StreamConfig
 
 # Constants
 

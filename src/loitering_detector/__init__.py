@@ -18,12 +18,12 @@ DetectionManager
     Backend manager for vision inference and tracking.
 """
 
-from loitering_detector.core.system import LoiteringDetectionSystem
-from loitering_detector.core.loitering import LoiteringEngine
-from loitering_detector.core.alerts import AlertManager
-from loitering_detector.stream.manager import StreamManager
-from loitering_detector.detection.manager import DetectionManager
 from loitering_detector import config
+from loitering_detector.core.alerts import AlertManager
+from loitering_detector.core.loitering import LoiteringEngine
+from loitering_detector.core.system import LoiteringDetectionSystem
+from loitering_detector.detection.manager import DetectionManager
+from loitering_detector.stream.manager import StreamManager
 
 __all__ = [
     "LoiteringDetectionSystem",
