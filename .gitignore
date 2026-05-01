@@ -41,6 +41,4 @@ work_dirs/
 .DS_Store
 
 # Project Specific
-.agents/
-sdlc-studio/
 documents/
