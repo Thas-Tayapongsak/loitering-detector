@@ -3,7 +3,7 @@ name = "loitering-detector"
 version = "0.3.0"
 description = "Real-time computer vision system for loitering detection and tracking."
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "onnx>=1.21.0",
     "onnxruntime>=1.24.4",
@@ -49,10 +49,10 @@ packages = ["src/loitering_detector"]
 
 [tool.black]
 line-length = 88
-target-version = ["py313"]
+target-version = ["py312", "py313"]
 
 [tool.ruff]
-target-version = "py313"
+target-version = "py312"
 line-length = 88
 lint.select = [
     "E",   # pycodestyle errors
