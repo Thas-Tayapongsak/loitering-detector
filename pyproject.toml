@@ -49,7 +49,7 @@ packages = ["src/loitering_detector"]
 
 [tool.black]
 line-length = 88
-target-version = ['py313']
+target-version = ["py313"]
 
 [tool.ruff]
 target-version = "py313"
