@@ -1,12 +1,11 @@
 """Tests for the DebugVisualizer component, responsible for real-time video overlays and OpenCV window management."""
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import numpy as np
 import pytest
 
 from loitering_detector.visualization.visualizer import DebugVisualizer as Visualizer
-
 
 # Constants
 
@@ -28,7 +27,7 @@ def _make_mock_system(stream_ids=None, running=None):
     if stream_ids is None:
         stream_ids = [STREAM_1_ID]
     if running is None:
-        running = {sid: True for sid in stream_ids}
+        running = dict.fromkeys(stream_ids, True)
 
     system = MagicMock()
     streams = {}

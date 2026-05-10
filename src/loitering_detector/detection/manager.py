@@ -14,7 +14,7 @@ DetectionManager
 __all__ = ["DetectionManager"]
 
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 import torch
@@ -22,9 +22,9 @@ from ultralytics.engine.results import Results
 from ultralytics.trackers import BOTSORT, BYTETracker
 
 from loitering_detector.detection.config import (
-    DetectionConfig,
-    BYTETrackArgs,
     BoTSORTArgs,
+    BYTETrackArgs,
+    DetectionConfig,
 )
 from loitering_detector.detection.strategy import DetectionStrategy, YOLODetection
 
@@ -138,7 +138,7 @@ class DetectionManager:
 
         results = self._strategy.predict(frames)
 
-        for result, stream_id in zip(results, stream_ids):
+        for result, stream_id in zip(results, stream_ids, strict=True):
             self._update_result_with_tracks(result, stream_id)
 
         return results

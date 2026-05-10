@@ -7,7 +7,6 @@ import pytest
 from loitering_detector.config import AlertConfig
 from loitering_detector.core.alerts import AlertManager
 
-
 # Constants
 
 ALERT_INTERVAL = 5.0

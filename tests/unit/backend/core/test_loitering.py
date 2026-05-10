@@ -10,7 +10,6 @@ import redis
 from loitering_detector.config import LoiteringConfig, RedisConfig
 from loitering_detector.core.loitering import LoiteringEngine
 
-
 # Constants
 
 REDIS_HOST = "localhost"

@@ -20,9 +20,6 @@ env/
 # Documentation
 documents/
 
-# SDLC and Project Management
-sdlc-studio/
-.agents/
 
 # IDEs
 .vscode/

@@ -1,0 +1,94 @@
+name: Loitering Detector CI
+
+on:
+  push:
+    branches: [ "main", "dev"]
+  pull_request:
+    branches: [ "main", "dev"]
+
+jobs:
+  build:
+    name: Build and Install
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: [ "3.12", "3.13" ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ matrix.python-version }}
+      - name: Log uv version
+        run: uv --version
+      - name: Check uv lockfile sync
+        run: uv lock --check
+      - name: Install dependencies
+        run: uv sync --frozen --extra headless --dev
+
+  lint-and-format:
+    name: Lint and Format
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Install dependencies
+        run: uv sync --frozen --extra headless --dev
+      - name: Lint with Ruff
+        run: uv run poe lint
+      - name: Format with Black
+        run: uv run poe format
+
+  typecheck:
+    name: Type Check
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Install dependencies
+        run: uv sync --frozen --extra headless --dev
+      - name: Type check with MyPy
+        run: uv run poe typecheck
+
+  unit-test:
+    name: Unit Tests
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: [ "3.12", "3.13" ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: ${{ matrix.python-version }}
+      - name: Install test dependencies
+        run: uv sync --frozen --extra headless --dev
+      - name: Run unit tests
+        run: uv run poe unit-test
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.python-version }}
+          path: coverage.xml

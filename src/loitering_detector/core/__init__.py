@@ -16,9 +16,9 @@ AlertManager
 
 import logging
 
-from .system import LoiteringDetectionSystem
-from .loitering import LoiteringEngine
 from .alerts import AlertManager
+from .loitering import LoiteringEngine
+from .system import LoiteringDetectionSystem
 
 __all__ = [
     "LoiteringDetectionSystem",

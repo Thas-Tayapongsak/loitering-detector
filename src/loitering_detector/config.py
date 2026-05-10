@@ -1,10 +1,11 @@
-from pathlib import Path
-import yaml  # type: ignore
 import os
+from pathlib import Path
+
+import yaml  # type: ignore
 from pydantic import BaseModel, Field
 
-from loitering_detector.stream.config import StreamConfig
 from loitering_detector.detection.config import DetectionConfig
+from loitering_detector.stream.config import StreamConfig
 
 
 class RedisConfig(BaseModel):
@@ -67,7 +68,7 @@ class Settings:
         self.system = SystemConfig(**self._raw)
 
     def _read_yaml(self, path: str | Path) -> dict:
-        with open(path, "r") as f:
+        with open(path) as f:
             return yaml.safe_load(f)
 
 

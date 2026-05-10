@@ -10,7 +10,6 @@ from loitering_detector.stream.config import StreamConfig
 from loitering_detector.stream.manager import StreamManager
 from loitering_detector.stream.strategy import LiveStream
 
-
 # Constants
 
 STREAM_ID = 1

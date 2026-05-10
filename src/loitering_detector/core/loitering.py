@@ -97,7 +97,7 @@ class LoiteringEngine:
                 client.delete(*stale_keys)
         except Exception as e:
             self.redis = None  # Reset on failure
-            raise ConnectionError(f"Failed to connect to Redis: {e}")
+            raise ConnectionError(f"Failed to connect to Redis: {e}") from e
 
     def disconnect(self) -> None:
         """Close the Redis connection and clean up Lua scripts."""
@@ -241,7 +241,7 @@ class LoiteringEngine:
 
         stale_keys: list[str] = []
         loitering_keys: list[str] = []
-        for k, v in zip(stream_keys, active_values):
+        for k, v in zip(stream_keys, active_values, strict=True):
             if v is not None:
                 loitering_keys.append(k)
             else:
@@ -255,7 +255,7 @@ class LoiteringEngine:
 
         now = time.time()
         start_timestamps = cast(list[str | None], client.mget(loitering_keys))
-        for key, start_timestamp in zip(loitering_keys, start_timestamps):
+        for key, start_timestamp in zip(loitering_keys, start_timestamps, strict=True):
             if start_timestamp is None:
                 continue
             try:

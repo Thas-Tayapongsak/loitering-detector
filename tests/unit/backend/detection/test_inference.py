@@ -11,7 +11,6 @@ from loitering_detector.detection.config import DetectionConfig
 from loitering_detector.detection.manager import DetectionManager
 from loitering_detector.detection.strategy import YOLODetection
 
-
 # Constants
 
 DEFAULT_IMGSZ = 640

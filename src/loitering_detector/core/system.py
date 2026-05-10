@@ -1,7 +1,7 @@
 import logging
 import threading
 import time
-from typing import Generator
+from collections.abc import Generator
 
 import redis
 from ultralytics.engine.results import Results
@@ -125,7 +125,7 @@ class LoiteringDetectionSystem:
         except Exception as e:
             logger.error("Failed to start loitering detection system: %s", e)
             self.stop()
-            raise
+            raise e
 
     def stop(self) -> None:
         """Clean up all system resources, including streams and background threads."""
@@ -134,7 +134,7 @@ class LoiteringDetectionSystem:
         self._stop_detector()
         self.loitering_engine.disconnect()
 
-    def detect(self) -> Generator[dict[int, Results] | None, None, None]:
+    def detect(self) -> Generator[dict[int, Results] | None]:
         """
         Main detection loop that processes frames from all active streams.
 
@@ -263,7 +263,7 @@ class LoiteringDetectionSystem:
 
         valid_streams = []
         valid_frames = []
-        for stream, frame in zip(running_streams, frames):
+        for stream, frame in zip(running_streams, frames, strict=True):
             if frame is not None:
                 valid_streams.append(stream)
                 valid_frames.append(frame)
@@ -276,7 +276,7 @@ class LoiteringDetectionSystem:
 
         valid_stream_ids = [stream.config.id for stream in valid_streams]
         results = self.detector.infer(valid_frames, valid_stream_ids)
-        return {sid: res for sid, res in zip(valid_stream_ids, results)}
+        return dict(zip(valid_stream_ids, results, strict=True))
 
     def _update_loitering_engine(self, batch_results: dict[int, Results]) -> None:
         """Update the loitering engine with fresh detection results."""

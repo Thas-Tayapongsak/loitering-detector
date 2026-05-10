@@ -10,6 +10,7 @@ wheels/
 .ruff_cache/
 .pytest_cache/
 .coverage
+coverage.xml
 
 # Model Weights
 *.pt
@@ -41,6 +42,4 @@ work_dirs/
 .DS_Store
 
 # Project Specific
-.agents/
-sdlc-studio/
 documents/
