@@ -10,7 +10,7 @@ jobs:
   build:
     name: Build and Install
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     strategy:
       fail-fast: true
       matrix:
@@ -32,6 +32,7 @@ jobs:
 
   lint-and-format:
     name: Lint and Format
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -41,13 +42,33 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
+      - name: Install dependencies
+        run: uv sync --frozen --extra headless --dev
       - name: Lint with Ruff
-        run: uv run --with ruff ruff check .
+        run: uv run poe lint
       - name: Format with Black
-        run: uv run --with black black --check .
+        run: uv run poe format
+
+  typecheck:
+    name: Type Check
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Install dependencies
+        run: uv sync --frozen --extra headless --dev
+      - name: Type check with MyPy
+        run: uv run poe typecheck
 
   unit-test:
     name: Unit Tests
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -65,7 +86,7 @@ jobs:
       - name: Install test dependencies
         run: uv sync --frozen --extra headless --dev
       - name: Run unit tests
-        run: uv run pytest tests/unit --cov=src --cov-report=xml --cov-report=term-missing
+        run: uv run poe unit-test
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
