@@ -30,18 +30,26 @@ Clone the repository and install dependencies using `uv` (recommended) or `pip`:
 git clone https://github.com/Thas-Tayapongsak/loitering-detector.git
 cd loitering-detector
 
-# Install for headless production (no GUI windows)
-uv sync --extra headless
+# Install for CPU-only headless production
+uv sync --extra headless --extra cpu
 
-# OR install with GUI support (for local calibration and display)
-uv sync --extra gui
+# OR install for GPU-enabled headless production (CUDA 12.1)
+uv sync --extra headless --extra gpu
+
+# OR install for CPU-only local debugging (with GUI)
+uv sync --extra gui --extra cpu
+
+# OR install for GPU-enabled local debugging (with GUI and CUDA 12.1)
+uv sync --extra gui --extra gpu
 ```
 
-Alternatively, using standard pip:
+Alternatively, using standard pip (note: custom routing index rules are configured via `uv`, so standard `pip` will fall back to downloading standard CUDA packages):
 ```bash
-pip install -e .[headless]  # for production
+pip install -e .[headless]            # for production CPU
+pip install -e .[headless,gpu]        # for production GPU
 # OR
-pip install -e .[gui]       # for local debugging with UI
+pip install -e .[gui]                 # for local debugging CPU
+pip install -e .[gui,gpu]             # for local debugging GPU
 ```
 
 ---
@@ -106,18 +114,61 @@ streams:
 
 ## 🐋 Running with Docker
 
-You can run the entire system (Redis + Ingestion Worker) inside Docker.
+You can run the entire system (Redis + Ingestion Worker) inside Docker. The container builds are optimized using a multi-stage architecture that:
+* **Separates Build Tools**: Compilers (`gcc`, `g++`, `python3-dev`) are isolated in a temporary builder stage, keeping the final runtime image secure and lightweight.
+* **Caches Dependencies**: Utilizes `uv sync --no-install-project` and BuildKit cache mounts to prevent reinstalling pip packages when project source files change.
+* **Minimizes Footprint**: Resolves pre-compiled binary wheels (`lapx`) and routes to CPU-only PyTorch by default to save 1.8GB+ of CUDA libraries for test/headless runners.
+* **Direct Entrypoints**: Configures the virtual environment directly in the container `PATH` and runs `python` and `pytest` directly to reduce container startup overhead.
+* **Optimized Layer Ownership**: Copies files directly using non-root `worker` ownership (`COPY --chown=worker:worker`), avoiding costly runtime `chown -R` commands that bloat image layer sizes.
 
-1. Configure your streams and models in `system_config.docker_example.yml`.
-2. Start the services:
-   ```bash
-   docker-compose up --build
-   ```
+To run the application inside Docker, first configure your streams and models in `system_config.docker_example.yml`, then execute the build and run commands described below.
 
-To run the test suite inside an isolated Docker runner container:
-```bash
-docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit
-```
+### ⚙️ Execution and Build Commands
+
+* **Local Test Build**:
+  Build the test target image manually:
+  ```bash
+  docker build -t loitering-detector:test --target test -f docker/worker.Dockerfile .
+  ```
+
+* **Local Production Build**:
+  Build the production runner target image manually:
+  ```bash
+  docker build -t loitering-detector:prod --target production -f docker/worker.Dockerfile .
+  ```
+
+* **Run Unit Tests inside Container**:
+  Build and run unit tests inside the container environment:
+  ```bash
+  docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit
+  ```
+
+* **Run System Integration**:
+  Verify the production container successfully initiates, connects to Redis, and runs the stream ingestion:
+  ```bash
+  docker-compose up --build
+  ```
+
+### ⚙️ Customizing Compute (CPU vs. GPU) in Docker
+
+* **Using Docker CLI**:
+  Pass the `DEVICE` build argument (options: `cpu` or `gpu`):
+  ```bash
+  # Build for GPU (CUDA 12.1)
+  docker build --build-arg DEVICE=gpu -t loitering-detector:gpu -f docker/worker.Dockerfile .
+  ```
+
+* **Using Docker Compose**:
+  Modify the `args` parameter under the service build configuration:
+  ```yaml
+    worker:
+      build:
+        context: .
+        dockerfile: docker/worker.Dockerfile
+        target: production
+        args:
+          - DEVICE=gpu # Options: 'cpu' or 'gpu'
+  ```
 
 ---
 

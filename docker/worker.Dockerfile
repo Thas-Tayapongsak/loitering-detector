@@ -1,59 +1,116 @@
-# Stage 1: Base image with system dependencies
+# Declare global build argument for compute capability (cpu or gpu)
+ARG DEVICE="cpu"
+
+# ==============================================================================
+# STAGE 1: Runtime Base (Lean & Secure)
+# ==============================================================================
 FROM python:3.13-slim AS base
 
 ENV PYTHONUNBUFFERED=1
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Optimization: System dependencies and cleanup
+# Install only basic shared libraries needed for execution (OpenCV/FFmpeg)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libsm6 \
     libxext6 \
-    curl \
-    build-essential \
-    python3-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Security: Create non-root user
+# Create non-root user for runtime safety
 RUN useradd -m -u 1000 worker
 WORKDIR /app
+
+# Ensure we include the virtual environment in the PATH
+ENV PATH="/app/.venv/bin:$PATH"
+
+# ==============================================================================
+# STAGE 2: Builder (Temporary compilation & package installation)
+# ==============================================================================
+FROM base AS builder
+
+# Install build tools, compiler, curl, and uv
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    python3-dev \
+    curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install uv globally
 RUN curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh
 
-# Stage 2: Production build (headless)
+# ==============================================================================
+# STAGE 3: Production Builder (Prepare production dependencies)
+# ==============================================================================
+FROM builder AS production-builder
+ARG DEVICE
+
+COPY pyproject.toml uv.lock README.md ./
+
+# Sync only third-party production dependencies, deferring workspace/project install
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --extra headless --extra ${DEVICE} --frozen --no-dev --no-install-project
+
+# ==============================================================================
+# STAGE 4: Test Builder (Prepare development/test dependencies)
+# ==============================================================================
+FROM builder AS test-builder
+ARG DEVICE
+
+COPY pyproject.toml uv.lock README.md ./
+
+# Sync all dependencies (including dev), deferring workspace/project install
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --extra headless --extra ${DEVICE} --frozen --no-install-project
+
+# ==============================================================================
+# STAGE 5: Final Production Runner (Minimal & Hardened)
+# ==============================================================================
 FROM base AS production
+ARG DEVICE
 
-COPY pyproject.toml uv.lock README.md ./
-# Caching: Use uv cache mount for faster builds
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --extra headless --frozen --no-dev
+# Copy uv binary for workspace project sync/runtime management
+COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
 
-COPY src/ src/
-COPY system_config.docker_example.yml system_config.yml
+# Copy only the compiled virtual environment from the production builder
+COPY --chown=worker:worker --from=production-builder /app/.venv /app/.venv
 
-# Security: Switch to non-root user
-RUN chown -R worker:worker /app
+# Copy source code and config files
+COPY --chown=worker:worker src/ src/
+COPY --chown=worker:worker system_config.docker_example.yml system_config.yml
+COPY --chown=worker:worker pyproject.toml uv.lock README.md ./
+
+# Re-run a fast sync to register/install the local project into .venv (instant)
+RUN uv sync --extra headless --extra ${DEVICE} --frozen --no-dev
+
+# Switch to non-root user
 USER worker
 
-# Entrypoint: Point directly to refactored run script
-ENTRYPOINT ["uv", "run", "python", "-m", "loitering_detector.scripts.main", "run"]
+ENTRYPOINT ["python", "-m", "loitering_detector.scripts.main", "run"]
 
-# Stage 3: Test build (includes dev dependencies and tests)
+# ==============================================================================
+# STAGE 6: Final Test Runner
+# ==============================================================================
 FROM base AS test
+ARG DEVICE
 
-COPY pyproject.toml uv.lock README.md ./
-# Caching: Use uv cache mount for faster builds
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --extra headless --frozen
+# Copy uv binary for workspace project sync/runtime management
+COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
 
-COPY src/ src/
-COPY tests/ tests/
-COPY system_config.docker_example.yml system_config.yml
+# Copy the complete virtual environment from the test builder
+COPY --chown=worker:worker --from=test-builder /app/.venv /app/.venv
 
-# Security: Switch to non-root user
-RUN chown -R worker:worker /app
+# Copy source code, tests, and configs
+COPY --chown=worker:worker src/ src/
+COPY --chown=worker:worker tests/ tests/
+COPY --chown=worker:worker system_config.docker_example.yml system_config.yml
+COPY --chown=worker:worker pyproject.toml uv.lock README.md ./
+
+# Re-run a fast sync to register/install the local project into .venv (instant)
+RUN uv sync --extra headless --extra ${DEVICE} --frozen
+
+# Switch to non-root user
 USER worker
 
-ENTRYPOINT ["uv", "run", "pytest"]
+ENTRYPOINT ["pytest"]

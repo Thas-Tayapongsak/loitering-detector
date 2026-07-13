@@ -73,7 +73,7 @@ The project is structured as a clean, component-oriented Python package.
 loitering_detector/
 ├── .github/                       # GitHub Actions workflows
 ├── docker/                        # Dockerfiles for production and testing
-│   └── worker.Dockerfile          # Multistage builder for worker and tests
+│   └── worker.Dockerfile          # Optimized multi-stage builder for worker and tests
 ├── src/
 │   └── loitering_detector/        # Core application package
 │       ├── __init__.py            # Package entry point
@@ -209,9 +209,13 @@ To prevent race conditions, network latency overhead, and partial updates when l
 
 ### 3. Headless vs. GUI Separation
 Production systems typically run headless on servers, whereas developers need GUI windows to calibrate camera regions of interest.
-* **Solution:** We separate these dependencies using Pydantic group extras: `[headless]` installs `opencv-python-headless`, and `[gui]` installs full `opencv-python`. The `cv2` module is lazy-imported in the `debug` runner module to allow headless environments to import scripts without throwing GUI-related runtime library exceptions.
+* **Solution:** We separate these dependencies using package extras: `[headless]` installs `opencv-python-headless` and the server-optimized `ultralytics-opencv-headless` package, whereas `[gui]` installs full `opencv-python` and standard `ultralytics`. Moving the `ultralytics` dependencies out of core dependencies and into these conflicting extras prevents `uv` from installing both versions of OpenCV simultaneously, avoiding file collisions and namespace conflicts. The `cv2` module is lazy-imported in the `debug` runner module to allow headless environments to import scripts without throwing GUI-related runtime library exceptions.
 
-### 4. Thread-Safe FFmpeg Environment Controls
+### 4. CPU vs. GPU Package Routing
+By default, machine learning packages like PyTorch resolve with CUDA/GPU binaries on Linux. This triggers massive CUDA library downloads (such as cuDNN, cuBLAS, NCCL, and Triton), amounting to 1.8GB+ of overhead.
+* **Solution:** We define `[cpu]` and `[gpu]` optional dependencies (extras) in `pyproject.toml` and configure `tool.uv` conflicts. Because the packages conflict on index sources, they are marked as mutually exclusive `conflicts` under `tool.uv`, enabling `uv` to split-lock them side-by-side inside `uv.lock`. This is also used to route `onnxruntime` (for CPU) and `onnxruntime-gpu` (for GPU, locked to `<1.27.0` for CUDA 12 support) to their respective environments. Developers and build environments must explicitly specify either `--extra cpu` or `--extra gpu` during installation to route packages to the correct custom index (`pytorch-cpu` or `pytorch-gpu`) and avoid PyPI's default CUDA-enabled builds.
+
+### 5. Thread-Safe FFmpeg Environment Controls
 Some lower-level FFmpeg parameters (such as `reconnect`, `reconnect_streamed`, and `reconnect_delay_max`) are not exposed as standard properties via OpenCV's `cv2.VideoCapture.set()` method.
 * **Solution:** They must be passed as an environment variable `OPENCV_FFMPEG_CAPTURE_OPTIONS`. To prevent multi-threaded streams from writing conflicts, `LiveStream` wraps VideoCapture instantiation in `opencv_ffmpeg_capture_options_context` (`src/loitering_detector/stream/utils.py`), which uses a global thread lock to safely modify and restore the environment variables.
 
@@ -235,11 +239,12 @@ To execute the tests:
 uv run pytest tests/unit
 ```
 
-### 4. Dockerized Test Runner
-To execute tests in an isolated environment mimicking production:
+### 4. Dockerized Test Runner & Multi-Stage Builds
+To execute tests in an isolated environment mimicking production, we use an optimized multi-stage build setup that separates compiler dependencies from the runtime image and implements cache mounts:
 ```bash
 docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit
 ```
+The Docker build defaults to CPU-only PyTorch and precompiled `lapx` wheels, skipping 1.8GB+ of CUDA libraries to accelerate builds. However, the build is parameterized via a global `DEVICE` build argument (options: `cpu`, `gpu`) to seamlessly switch package routing for CUDA-accelerated production environments. Additionally, the final containers execute `python` and `pytest` directly (bypassing `uv run` overhead at runtime) since the virtual environment is already pre-synchronized at build time. To keep the image layer sizes as small as possible and avoid duplicate files in layers, the final runner stages copy assets directly using the non-root `worker` ownership via `COPY --chown=worker:worker`, entirely avoiding costly runtime `RUN chown -R` layers.
 
 ---
 

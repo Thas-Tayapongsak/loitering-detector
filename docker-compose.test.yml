@@ -1,32 +1,19 @@
 services:
   redis:
     image: redis:7.4.0-alpine
-    container_name: loitering-test-redis
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
-    # No ports needed for internal testing, but 6381 provided for external inspection
-    ports:
-      - "6381:6379"
 
   test-runner:
     build:
       context: .
       dockerfile: docker/worker.Dockerfile
       target: test
-    container_name: loitering-test-runner
     depends_on:
       redis:
         condition: service_healthy
     environment:
-      - LOITERING_REDIS_HOST=redis
-      - LOITERING_REDIS_PORT=6379
       - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    volumes:
-      - ./system_config.docker_example.yml:/app/system_config.yml:ro
-      - ./yolo26n.pt:/app/yolo26n.pt:ro
-      - ./src:/app/src:ro
-      - ./tests:/app/tests:ro
