@@ -1,4 +1,4 @@
-detection: 
+detection:
   tracker: 'botsort'
   path: 'yolo26n.pt'
   imgsz: 640

@@ -36,6 +36,7 @@ dev = [
     "radon>=6.0.1",
     "black>=23.12.1",
     "poethepoet>=0.45.0",
+    "pre-commit>=4.6.0",
 ]
 
 [project.scripts]
@@ -72,7 +73,8 @@ ignore_missing_imports = true
 
 [tool.poe.tasks]
 lint = "ruff check ."
-format = "black --check ."
+format = "black ."
+format-check = "black --check ."
 typecheck = "mypy src"
 unit-test = "pytest tests/unit --cov=src --cov-report=term-missing --cov-report=xml"
-ci = { sequence = ["lint", "format", "typecheck", "unit-test"] }
+ci = { sequence = ["lint", "format-check", "typecheck", "unit-test"] }

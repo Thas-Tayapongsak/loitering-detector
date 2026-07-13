@@ -121,11 +121,11 @@ loitering_detector/
 
 ## 🛠️ Developer Setup & Workflows
 
-This project uses modern Python development tooling centered around `uv` and `poethepoet`.
+This project uses modern Python development tooling centered around `uv`, `poethepoet`, and `pre-commit`.
 
 ### 1. Prerequisites
 * Python 3.12 or 3.13
-* Redis Server (running locally or via Docker)
+* Redis Server (running locally or via Docker, only required for integration/E2E testing or production; unit tests run fully offline)
 
 ### 2. Environment Setup
 Install dependencies and build the virtual environment using `uv`:
@@ -134,7 +134,18 @@ Install dependencies and build the virtual environment using `uv`:
 uv sync --all-extras
 ```
 
-### 3. Task Execution
+### 3. Git Pre-Commit Hooks
+We use `pre-commit` to run local validations automatically before changes are committed.
+Install the git hooks with:
+```bash
+uv run pre-commit install
+```
+You can also trigger them manually on all files:
+```bash
+uv run pre-commit run --all-files
+```
+
+### 4. Task Execution
 We use `poethepoet` (aliased as `poe`) as our task runner. The following tasks are configured in `pyproject.toml`:
 
 * **Linting Checks:**
@@ -147,7 +158,13 @@ We use `poethepoet` (aliased as `poe`) as our task runner. The following tasks a
   ```bash
   uv run poe format
   ```
-  Runs `black --check .` to enforce formatting.
+  Runs `black .` to format the python codebase in place.
+
+* **Format Validation:**
+  ```bash
+  uv run poe format-check
+  ```
+  Runs `black --check .` to verify files are formatted without modifying them (used in CI).
 
 * **Static Type Checking:**
   ```bash
@@ -165,7 +182,7 @@ We use `poethepoet` (aliased as `poe`) as our task runner. The following tasks a
   ```bash
   uv run poe ci
   ```
-  Runs all of the checks sequentially (`lint` -> `format` -> `typecheck` -> `unit-test`) to validate changes before pushing.
+  Runs all checks sequentially (`lint` -> `format-check` -> `typecheck` -> `unit-test`) to validate changes before pushing.
 
 ---
 
@@ -197,9 +214,9 @@ Tests are divided into `unit/`, `integration/`, and `e2e/` directories.
 * `tests/unit/backend/` covers internal logic without invoking actual GPU models or external Redis servers.
 
 ### 2. Mocking Strategy
-* **Video Frames:** We use the `mock_frame` fixture (defined in `tests/unit/backend/conftest.py`) which provides a mock NumPy matrix representing an RGB image.
-* **Model Weight Files:** Since deep learning weights are large and not committed, tests write dummy weight files using the `mock_weights_file` fixture.
-* **External Systems (Redis/Inference):** Unit tests utilize `pytest-mock` to stub calls to `redis.Redis` and the `ultralytics.YOLO` model backend, validating parameters and return objects without loading weights or sending network packets.
+* **Video Frames:** We use the `mock_frame` fixture for simple dummy frames. For more complex/scenarios, we use `synthetic_frame_generator` (which wraps the `generate_synthetic_frame` utility) to build mock NumPy RGB arrays with custom colors and shapes (e.g. circles or rectangles) to simulate objects in video streams.
+* **Model Weight Files:** Tests utilize the `mock_weights_file` fixture to write dummy weights files. Alternatively, the `create_mock_weights` fixture is available to dynamically create mock weights files at any specified filepath (and handles deletion cleanup automatically after tests run).
+* **External Systems (Redis/Inference):** Unit tests utilize `pytest-mock` to stub calls to the `ultralytics.YOLO` model backend and a shared `mock_redis` fixture for Redis. In addition, an autouse `stub_redis_network` fixture globally monkeypatches `redis.Redis` during all unit tests as a safety net, guaranteeing no network calls are ever made to a live Redis database.
 
 ### 3. Local Verification Commands
 To execute the tests:

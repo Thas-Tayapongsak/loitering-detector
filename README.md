@@ -72,7 +72,7 @@ All settings are configured through a YAML file (e.g., `system_config.yml`). You
 ### Example Configuration (`system_config.yml`)
 ```yaml
 # Computer Vision model settings
-detection: 
+detection:
   tracker: 'botsort'      # Tracker algorithm: 'botsort' or 'bytetrack'
   path: 'yolo26n.pt'      # Path to YOLO weights (.pt, .onnx, or .engine)
   imgsz: 640              # Model input image size
@@ -118,6 +118,38 @@ To run the test suite inside an isolated Docker runner container:
 ```bash
 docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit
 ```
+
+---
+
+## 🛠️ Development & Quality Assurance
+
+We enforce code quality standards locally before code is committed or pushed.
+
+### 1. Task Runner Tasks
+We use `poethepoet` to execute project checks:
+* **Format code in-place:** `uv run poe format`
+* **Check formatting without modifying files:** `uv run poe format-check`
+* **Lint codebase syntax:** `uv run poe lint`
+* **Static type checking:** `uv run poe typecheck`
+* **Run unit tests:** `uv run poe unit-test`
+* **Run the full validation pipeline:** `uv run poe ci`
+
+### 2. Git Pre-Commit Hooks
+We use `pre-commit` to prevent committing invalid or improperly formatted code.
+To install pre-commit git hooks locally:
+```bash
+uv run pre-commit install
+```
+The hooks run automatically on every `git commit`. You can also run them manually on all files:
+```bash
+uv run pre-commit run --all-files
+```
+
+### 3. Offline Testing
+Unit tests run entirely offline. They do not require a live Redis instance or download YOLO weights, thanks to:
+* Centralized mocks for the Redis persistence layer.
+* Automatic global Redis network stubbing safety nets in `conftest.py`.
+* Local dummy YOLO weights file creators and synthetic video stream frame generators.
 
 ---
 

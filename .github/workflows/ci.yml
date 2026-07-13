@@ -47,8 +47,7 @@ jobs:
       - name: Lint with Ruff
         run: uv run poe lint
       - name: Format with Black
-        run: uv run poe format
-
+        run: uv run poe format-check
   typecheck:
     name: Type Check
     needs: build

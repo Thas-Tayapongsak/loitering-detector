@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-import redis
 
 from loitering_detector.config import LoiteringConfig, RedisConfig
 from loitering_detector.core.loitering import LoiteringEngine
@@ -35,14 +34,6 @@ def loitering_config():
         cooldown_percentage=DEFAULT_COOLDOWN_PCT,
         redis=RedisConfig(host=REDIS_HOST, port=REDIS_PORT),
     )
-
-
-@pytest.fixture
-def mock_redis():
-    """A mocked Redis client."""
-    mock = MagicMock(spec=redis.Redis)
-    mock.decode_responses = True
-    return mock
 
 
 @pytest.fixture
