@@ -71,7 +71,7 @@ def main():
 
     # Command-Specific Environment Checks
     if args.command == "debug":
-        if (os.name != "nt" or sys.platform != "darwin") and not os.environ.get(
+        if (os.name != "nt" and sys.platform != "darwin") and not os.environ.get(
             "DISPLAY"
         ):
             logging.critical(
