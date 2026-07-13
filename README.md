@@ -10,7 +10,7 @@ Real-time computer vision system for loitering detection and tracking.
 
 * **Real-time Detection & Tracking:** Detects persons and tracks their movements across frames with unique tracking IDs.
 * **Custom Regions of Interest (ROIs):** Define customized multi-point polygonal boundary zones (ROIs) for each video stream.
-* **Decoupled Monitoring Engine:** Uses a Redis-backed persistence layer to store tracking state, keeping system performance high and resilient to application crashes.
+* **Decoupled Monitoring Engine:** Implements a clean layer architecture with abstract Interfaces allowing storage repositories (e.g., RedisStateRepository or InMemoryStateRepository) and geometry engines (e.g. OpenCVGeometryEngine) to be cleanly swapped. Persists temporal state atomically using Lua scripts in Redis to keep the worker stateless and resilient.
 * **Multi-Stream Support:** Processes multiple cameras or stream feeds concurrently using optimized batch inference.
 * **Flexible Deployments:** Supports both lightweight headless production workers (Docker/Server) and local debugging GUIs with video overlays.
 
@@ -147,7 +147,8 @@ uv run pre-commit run --all-files
 
 ### 3. Offline Testing
 Unit tests run entirely offline. They do not require a live Redis instance or download YOLO weights, thanks to:
-* Centralized mocks for the Redis persistence layer.
+* **Mock-Free Domain Unit Tests:** Business rules inside `LoiteringEngine` are tested without database mocks or OpenCV dependencies by injecting the `InMemoryStateRepository` and a simple local geometry stub.
+* Centralized script-execution testing for the Redis adapter (`RedisStateRepository`) using mocks.
 * Automatic global Redis network stubbing safety nets in `conftest.py`.
 * Local dummy YOLO weights file creators and synthetic video stream frame generators.
 

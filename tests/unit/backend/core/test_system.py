@@ -497,17 +497,28 @@ class TestUpdateLoiteringEngine:
     """Tests for _update_loitering_engine."""
 
     def test_calls_engine_update(self, system_config):
-        """Delegates to loitering_engine.update."""
+        """Delegates to loitering_engine.update after translating results."""
+        from loitering_detector.core.interfaces import DetectedObject
         from loitering_detector.core.system import LoiteringDetectionSystem
 
         system = LoiteringDetectionSystem(system_config)
         system.loitering_engine = MagicMock()
-        system.roi_polygons = {1: [(0, 0), (1, 0), (1, 1)]}
-        batch = {1: MagicMock()}
+        system.roi_polygons = {1: [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)]}
+
+        mock_result = MagicMock()
+        mock_result.orig_shape = (1080, 1920)
+        mock_result.boxes.data = [[100, 100, 200, 200, 5, 0.9, 0]]
+        batch = {1: mock_result}
 
         system._update_loitering_engine(batch)
+
+        expected_detections = {
+            1: [
+                DetectedObject(track_id=5, x_center=150.0 / 1920, y_bottom=200.0 / 1080)
+            ]
+        }
         system.loitering_engine.update.assert_called_once_with(
-            batch, system.roi_polygons
+            expected_detections, system.roi_polygons
         )
 
     def test_catches_redis_errors(self, system_config):
@@ -518,7 +529,11 @@ class TestUpdateLoiteringEngine:
         system.loitering_engine = MagicMock()
         system.loitering_engine.update.side_effect = redis.ConnectionError("fail")
 
-        system._update_loitering_engine({1: MagicMock()})  # Should not raise
+        mock_result = MagicMock()
+        mock_result.orig_shape = (1080, 1920)
+        mock_result.boxes.data = [[100, 100, 200, 200, 5, 0.9, 0]]
+
+        system._update_loitering_engine({1: mock_result})  # Should not raise
 
 
 class TestSleepInterval:
@@ -611,6 +626,8 @@ class TestDetectLoop:
         system.streams = {1: s1}
 
         mock_result = MagicMock()
+        mock_result.orig_shape = (1080, 1920)
+        mock_result.boxes.data = [[100, 100, 200, 200, 5, 0.9, 0]]
         system.detector = MagicMock()
         system.detector.infer.return_value = [mock_result]
 

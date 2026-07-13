@@ -8,6 +8,11 @@ from ultralytics.engine.results import Results
 
 from loitering_detector.config import SystemConfig
 from loitering_detector.core.alerts import AlertManager
+from loitering_detector.core.interfaces import (
+    DetectedObject,
+    GeometryEngine,
+    LoiteringStateRepository,
+)
 from loitering_detector.core.loitering import LoiteringEngine
 from loitering_detector.detection import DetectionManager
 from loitering_detector.stream import StreamManager
@@ -55,6 +60,8 @@ class LoiteringDetectionSystem:
         self,
         config: SystemConfig,
         active_stream_ids: list[int] | None = None,
+        repository: LoiteringStateRepository | None = None,
+        geometry: GeometryEngine | None = None,
     ):
         """
         Initialize the loitering detection system.
@@ -65,6 +72,10 @@ class LoiteringDetectionSystem:
             The configuration settings for the system.
         active_stream_ids : list[int], optional
             Specific stream IDs to activate. If None, all configured streams are used.
+        repository : LoiteringStateRepository, optional
+            State persistence repository.
+        geometry : GeometryEngine, optional
+            Spatial containment geometry engine.
         """
         self.config = config
 
@@ -75,7 +86,30 @@ class LoiteringDetectionSystem:
 
         self.streams: dict[int, StreamManager] = {}
         self.detector: DetectionManager | None = None
-        self.loitering_engine = LoiteringEngine(self.config.loitering)
+
+        if repository is None:
+            from loitering_detector.infrastructure.persistence.redis import (
+                RedisStateRepository,
+            )
+
+            self.repository: LoiteringStateRepository = RedisStateRepository(
+                self.config.loitering.redis
+            )
+        else:
+            self.repository = repository
+
+        if geometry is None:
+            from loitering_detector.infrastructure.geometry import OpenCVGeometryEngine
+
+            self.geometry: GeometryEngine = OpenCVGeometryEngine()
+        else:
+            self.geometry = geometry
+
+        self.loitering_engine = LoiteringEngine(
+            self.config.loitering,
+            repository=self.repository,
+            geometry=self.geometry,
+        )
         self.roi_polygons: dict[int, list[tuple[float, float]]] = {}
         self.sample_fps: float = self.config.sample_fps
         self.sample_interval: float = 1.0 / self.sample_fps
@@ -281,7 +315,28 @@ class LoiteringDetectionSystem:
     def _update_loitering_engine(self, batch_results: dict[int, Results]) -> None:
         """Update the loitering engine with fresh detection results."""
         try:
-            self.loitering_engine.update(batch_results, self.roi_polygons)
+            detections: dict[int, list[DetectedObject]] = {}
+            for stream_id, result in batch_results.items():
+                detections[stream_id] = []
+                if result.boxes is not None and result.boxes.data is not None:
+                    orig_h, orig_w = result.orig_shape
+                    import numpy as np
+
+                    boxes = np.array(result.boxes.data)
+                    for box in boxes:
+                        if len(box) >= 7:
+                            track_id = int(box[4])
+                            x_center = ((box[0] + box[2]) / 2.0) / orig_w
+                            y_bottom = box[3] / orig_h
+
+                            detections[stream_id].append(
+                                DetectedObject(
+                                    track_id=track_id,
+                                    x_center=x_center,
+                                    y_bottom=y_bottom,
+                                )
+                            )
+            self.loitering_engine.update(detections, self.roi_polygons)
         except (redis.ConnectionError, redis.TimeoutError) as e:
             logger.error("Redis error in detect loop: %s", e)
 

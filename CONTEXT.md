@@ -4,7 +4,7 @@ This document provides a comprehensive blueprint of the `loitering-detector` sys
 
 ## 🏗️ System Architecture & Data Flow
 
-The `loitering-detector` system is designed as a pipeline that runs frames through Object Detection and Multi-Object Tracking (MOT), evaluates spatial ROI containment, persists temporal state in a Redis database using atomic Lua scripts, and monitors loitering alerts on a background thread.
+The `loitering-detector` system is designed as a pipeline that runs frames through Object Detection and Multi-Object Tracking (MOT), translates raw results into domain DTOs, evaluates containment using a decoupled geometry engine, persists state in a database or memory repository, and monitors alerts on a background thread.
 
 ### High-Level Data Flow
 
@@ -22,23 +22,24 @@ flowchart TD
         F -->|Raw Bounding Boxes| E
         E -->|Track State update| G["BYTETracker / BoT-SORT"]
         G -->|Tracked Bboxes and IDs| E
-        E -->|Track Results| H[Loitering Engine]
-        H -->|ROI Containment| I{Inside Polygon?}
-        I -->|Yes| J["Atomic _record Lua Script"]
-        I -->|No| K["Atomic _remove Lua Script"]
+        E -->|Track Results| H[LoiteringDetectionSystem]
+        H -->|Translate to DTOs| I[DetectedObject DTOs]
+        I -->|Update| J[Loitering Engine]
+        J -->|ROI Containment| K{GeometryEngine}
     end
 
     subgraph Persistence [State Persistence]
-        J -->|Write state| L[(Redis)]
-        K -->|Clear state| L
+        J -->|State interface| L[LoiteringStateRepository]
+        L -->|Redis Adapter| M[(Redis)]
+        L -->|In-Memory Adapter| N[Memory Dicts]
     end
 
     subgraph Monitoring [Alert Monitoring]
-        M[Monitor Thread] -->|check status| H
-        H -->|Query state| L
-        H -->|Return Loiterers| M
-        M -->|update alerts| N[Alert Manager]
-        N -->|Log Info / Alert| O[System Logs]
+        O[Monitor Thread] -->|check status| J
+        J -->|Query state| L
+        J -->|Return Loiterers| O
+        O -->|update alerts| P[Alert Manager]
+        P -->|Log Info / Alert| Q[System Logs]
     end
 ```
 
@@ -50,9 +51,10 @@ The `DetectionManager` (`src/loitering_detector/detection/manager.py`) coordinat
 After receiving raw bounding boxes, the `DetectionManager` updates a unique tracker instance (from `TRACKER_REGISTRY` mapping to `BYTETracker` or `BOTSORT`) for each stream. This independent tracking state prevents track ID pollution across different cameras.
 
 ### 3. Loitering State Engine & Persistence
-The `LoiteringEngine` (`src/loitering_detector/core/loitering.py`) evaluates track bounding boxes against the configured Region of Interest (ROI) polygon.
-* **Containment Check:** A point at the bottom-center of the object bounding box (e.g., foot position `(x_center, y_bottom)`) is evaluated against the ROI polygon using `cv2.pointPolygonTest`.
-* **State Operations:** If inside the ROI, the `_record` Lua script sets the start timestamp for the object if it is new, maintains the TTL heartbeat, and updates the stream's index. If outside the ROI, the `_remove` Lua script deletes the active status and applies a cooldown TTL to the tracking state. All updates to Redis are performed atomically via registered Lua scripts to guarantee consistency.
+The `LoiteringDetectionSystem` coordinate loop parses raw bounding boxes from the `DetectionManager`'s results, scales the coordinates, and converts them to generic, framework-agnostic `DetectedObject` data transfer objects (defined in `interfaces.py`).
+These objects are passed to the `LoiteringEngine` (`src/loitering_detector/core/loitering.py`) which delegates containment checks and state updates to decoupled adapters:
+* **Containment Check:** A point at the bottom-center of the object bounding box (e.g., foot position `(x_center, y_bottom)`) is evaluated against the ROI polygon using an injected `GeometryEngine` strategy (concrete OpenCV implementation utilizing `cv2.pointPolygonTest`).
+* **State Operations:** The engine calls the injected `LoiteringStateRepository` strategy (`record_presence` or `remove_presence`) to persist object status. When configured with the `RedisStateRepository`, updates are executed atomically via registered Lua scripts on Redis. Alternatively, unit tests swap this persistence layer with the `InMemoryStateRepository` using local Python dictionary tracking.
 
 ### 4. Alerting & Monitoring
 A background thread (`_monitor_loop`) runs inside `LoiteringDetectionSystem` (`src/loitering_detector/core/system.py`). Every 1.0 second, it polls the `LoiteringEngine` to check which track IDs have exceeded the loitering threshold (e.g., `current_time - start_time >= threshold`).
@@ -79,13 +81,21 @@ loitering_detector/
 │       ├── core/                  # Orchestration and state management
 │       │   ├── __init__.py
 │       │   ├── alerts.py          # AlertManager notification logging
-│       │   ├── loitering.py       # LoiteringEngine Redis & ROI evaluation
+│       │   ├── interfaces.py      # [NEW] Domain interfaces and DTOs
+│       │   ├── loitering.py       # Decoupled LoiteringEngine
 │       │   └── system.py          # LoiteringDetectionSystem central coordinator
 │       ├── detection/             # CV Inference and MOT trackers
 │       │   ├── __init__.py
 │       │   ├── config.py          # Config schemas for YOLO, BYTETrack, BoT-SORT
 │       │   ├── manager.py         # Multi-stream tracker management
 │       │   └── strategy.py        # Abstract Strategy & YOLO implementations
+│       ├── infrastructure/        # [NEW] Concrete infrastructure adapters
+│       │   ├── __init__.py
+│       │   ├── geometry.py        # OpenCVGeometryEngine containment check
+│       │   └── persistence/       # State repository persistence implementations
+│       │       ├── __init__.py
+│       │       ├── in_memory.py   # InMemoryStateRepository for mock-free tests
+│       │       └── redis.py       # RedisStateRepository executing Lua scripts
 │       ├── scripts/               # Executable script entrypoints
 │       │   ├── __init__.py
 │       │   ├── debug.py           # Launcher for DebugVisualizer
@@ -216,7 +226,8 @@ Tests are divided into `unit/`, `integration/`, and `e2e/` directories.
 ### 2. Mocking Strategy
 * **Video Frames:** We use the `mock_frame` fixture for simple dummy frames. For more complex/scenarios, we use `synthetic_frame_generator` (which wraps the `generate_synthetic_frame` utility) to build mock NumPy RGB arrays with custom colors and shapes (e.g. circles or rectangles) to simulate objects in video streams.
 * **Model Weight Files:** Tests utilize the `mock_weights_file` fixture to write dummy weights files. Alternatively, the `create_mock_weights` fixture is available to dynamically create mock weights files at any specified filepath (and handles deletion cleanup automatically after tests run).
-* **External Systems (Redis/Inference):** Unit tests utilize `pytest-mock` to stub calls to the `ultralytics.YOLO` model backend and a shared `mock_redis` fixture for Redis. In addition, an autouse `stub_redis_network` fixture globally monkeypatches `redis.Redis` during all unit tests as a safety net, guaranteeing no network calls are ever made to a live Redis database.
+* **External Systems (Redis/Inference):** Unit tests utilize `pytest-mock` to stub calls to the `ultralytics.YOLO` model backend and a shared `mock_redis` fixture for `RedisStateRepository` tests. In addition, an autouse `stub_redis_network` fixture globally monkeypatches `redis.Redis` during all unit tests as a safety net, guaranteeing no network calls are ever made to a live Redis database.
+* **Mock-Free Domain Unit Tests:** Due to domain isolation, `LoiteringEngine` is unit tested offline without any database mocks or OpenCV dependencies by injecting the `InMemoryStateRepository` and a simple stub geometry engine (defined locally in the test files). This prevents fragile mock setups and ensures tests run extremely fast and reliably.
 
 ### 3. Local Verification Commands
 To execute the tests:

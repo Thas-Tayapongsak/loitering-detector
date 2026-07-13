@@ -1,16 +1,19 @@
-"""Tests for loitering detection logic, ROI geometry, and Redis-based state persistence."""
+"""Tests for loitering detection logic, state repository interfaces, and geometry adapters."""
 
-import time
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 import pytest
 
 from loitering_detector.config import LoiteringConfig, RedisConfig
+from loitering_detector.core.interfaces import DetectedObject, GeometryEngine
 from loitering_detector.core.loitering import LoiteringEngine
+from loitering_detector.infrastructure.geometry import OpenCVGeometryEngine
+from loitering_detector.infrastructure.persistence.in_memory import (
+    InMemoryStateRepository,
+)
+from loitering_detector.infrastructure.persistence.redis import RedisStateRepository
 
 # Constants
-
 REDIS_HOST = "localhost"
 REDIS_PORT = 6379
 
@@ -24,8 +27,6 @@ TRACK_KEY = f"state:loitering:{STREAM_ID}:{TRACK_ID}"
 
 
 # Fixtures
-
-
 @pytest.fixture
 def loitering_config():
     """Default loitering configuration for testing."""
@@ -37,153 +38,205 @@ def loitering_config():
 
 
 @pytest.fixture
-def engine(loitering_config, mock_redis):
-    """A LoiteringEngine instance with mocked Redis."""
-    return LoiteringEngine(loitering_config, redis_client=mock_redis)
+def in_memory_repo():
+    return InMemoryStateRepository()
+
+
+class StubGeometryEngine(GeometryEngine):
+    """Stub geometry engine that considers points with x > 0 inside the ROI."""
+
+    def is_inside(
+        self, point: tuple[float, float], polygon: list[tuple[float, float]]
+    ) -> bool:
+        return point[0] > 0.0
+
+
+@pytest.fixture
+def stub_geometry():
+    return StubGeometryEngine()
+
+
+@pytest.fixture
+def engine(loitering_config, in_memory_repo, stub_geometry):
+    """A LoiteringEngine instance with in-memory persistence and stub geometry."""
+    return LoiteringEngine(
+        loitering_config, repository=in_memory_repo, geometry=stub_geometry
+    )
 
 
 # Tests
 
 
 class TestLoiteringEngineInit:
-    """Tests for class instantiation and basic property calculations."""
+    """Tests for class instantiation and property delegation."""
 
-    def test_cooldown_calculation(self, loitering_config):
-        """
-        Test that the cooldown duration is correctly calculated based on the threshold and percentage.
-
-        Given: a loitering threshold and cooldown percentage
-        When: the LoiteringEngine is initialized
-        Then: the cooldown duration is correctly calculated (threshold * percentage)
-        """
-        # When: the engine is initialized with threshold and percentage
-        engine = LoiteringEngine(loitering_config)
-
-        # Then: the cooldown is calculated correctly
+    def test_cooldown_calculation(
+        self, loitering_config, in_memory_repo, stub_geometry
+    ):
+        """Test that the cooldown duration is correctly calculated on init."""
+        engine = LoiteringEngine(
+            loitering_config, repository=in_memory_repo, geometry=stub_geometry
+        )
         assert engine.cooldown == DEFAULT_COOLDOWN_SEC
 
-    def test_injected_redis_client(self, loitering_config, mock_redis):
-        """
-        Verify that an external Redis client can be correctly injected into the engine.
-
-        Given: an existing Redis client mock
-        When: the LoiteringEngine is initialized with the client
-        Then: the engine uses the provided client for operations
-        """
-        # When: injecting a mock redis client
-        engine = LoiteringEngine(loitering_config, redis_client=mock_redis)
-
-        # Then: the engine stores the reference
-        assert engine.redis is mock_redis
+    def test_injected_dependencies(
+        self, loitering_config, in_memory_repo, stub_geometry
+    ):
+        """Verify that dependencies are correctly stored in the engine."""
+        engine = LoiteringEngine(
+            loitering_config, repository=in_memory_repo, geometry=stub_geometry
+        )
+        assert engine.repository is in_memory_repo
+        assert engine.geometry is stub_geometry
 
 
-class TestLoiteringEngineLifecycle:
-    """Tests for Redis connection management."""
+class TestLoiteringEngineDomainLogic:
+    """Tests for core domain loitering rules using InMemoryStateRepository (US0006, US0007)."""
 
-    @patch("loitering_detector.core.loitering.redis.Redis")
-    def test_connect_lifecycle(self, mock_redis_cls, loitering_config):
-        """
-        Test the connection lifecycle and registration of Lua scripts in Redis.
+    def test_record_presence_inside_roi(self, engine, in_memory_repo):
+        """Test that an object inside the ROI has its presence recorded."""
+        detections = {
+            STREAM_ID: [DetectedObject(track_id=TRACK_ID, x_center=0.8, y_bottom=0.8)]
+        }
+        polygon = [(0.0, 0.0), (1.0, 1.0)]
 
-        Given: a Redis configuration
-        When: connect() is called
-        Then: the engine connects to Redis, pings it, and registers the required Lua scripts
-        """
+        with patch("time.time", return_value=1000.0):
+            engine.update(detections, {STREAM_ID: polygon})
+
+        # Verify entry timestamp is set in repo
+        key = f"state:loitering:{STREAM_ID}:{TRACK_ID}"
+        assert in_memory_repo._presence[key] == 1000.0
+        assert in_memory_repo._active_expiry[key] == 1000.0 + DEFAULT_COOLDOWN_SEC
+        assert (
+            in_memory_repo._base_expiry[key]
+            == 1000.0 + DEFAULT_THRESHOLD + DEFAULT_COOLDOWN_SEC
+        )
+        assert key in in_memory_repo._stream_indices[STREAM_ID]
+
+    def test_remove_presence_outside_roi(self, engine, in_memory_repo):
+        """Test that an object outside the ROI is removed from active sentinel status."""
+        detections_inside = {
+            STREAM_ID: [DetectedObject(track_id=TRACK_ID, x_center=0.8, y_bottom=0.8)]
+        }
+        detections_outside = {
+            STREAM_ID: [DetectedObject(track_id=TRACK_ID, x_center=-0.5, y_bottom=0.8)]
+        }
+        polygon = [(0.0, 0.0), (1.0, 1.0)]
+
+        with patch("time.time", return_value=1000.0):
+            engine.update(detections_inside, {STREAM_ID: polygon})
+
+        with patch("time.time", return_value=1002.0):
+            engine.update(detections_outside, {STREAM_ID: polygon})
+
+        key = f"state:loitering:{STREAM_ID}:{TRACK_ID}"
+        # Active sentinel is deleted (not in active_expiry)
+        assert key not in in_memory_repo._active_expiry
+        # Base record is still stored with cooldown TTL (1002 + cooldown)
+        assert in_memory_repo._presence[key] == 1000.0
+        assert in_memory_repo._base_expiry[key] == 1002.0 + DEFAULT_COOLDOWN_SEC
+
+    def test_identify_loiterers(self, engine):
+        """Test loiterer identification based on thresholds."""
+        detections = {
+            STREAM_ID: [DetectedObject(track_id=TRACK_ID, x_center=0.8, y_bottom=0.8)]
+        }
+        polygon = [(0.0, 0.0), (1.0, 1.0)]
+
+        # T = 1000.0: Enter ROI
+        with patch("time.time", return_value=1000.0):
+            engine.update(detections, {STREAM_ID: polygon})
+
+        # T = 1005.0: Check (duration = 5s, threshold = 10s) -> Should not loiter
+        with patch("time.time", return_value=1005.0):
+            engine.update(detections, {STREAM_ID: polygon})
+            res_not_yet = engine.check([STREAM_ID])
+        assert res_not_yet == {}
+
+        # T = 1011.0: Check (duration = 11s, threshold = 10s) -> Should loiter
+        with patch("time.time", return_value=1011.0):
+            engine.update(detections, {STREAM_ID: polygon})
+            res_loitering = engine.check([STREAM_ID])
+        assert res_loitering == {STREAM_ID: [TRACK_ID]}
+
+    def test_state_cooldown_reentry(self, engine, in_memory_repo):
+        """Verify that returning to ROI during cooldown maintains the same start time."""
+        polygon = [(0.0, 0.0), (1.0, 1.0)]
+
+        # T = 1000.0: Enter ROI
+        with patch("time.time", return_value=1000.0):
+            engine.update(
+                {
+                    STREAM_ID: [
+                        DetectedObject(track_id=TRACK_ID, x_center=0.8, y_bottom=0.8)
+                    ]
+                },
+                {STREAM_ID: polygon},
+            )
+
+        # T = 1002.0: Leave ROI (goes to cooldown)
+        with patch("time.time", return_value=1002.0):
+            engine.update(
+                {
+                    STREAM_ID: [
+                        DetectedObject(track_id=TRACK_ID, x_center=-0.5, y_bottom=0.8)
+                    ]
+                },
+                {STREAM_ID: polygon},
+            )
+
+        # T = 1004.0: Re-enter ROI (cooldown is 5s, so entry is still preserved)
+        with patch("time.time", return_value=1004.0):
+            engine.update(
+                {
+                    STREAM_ID: [
+                        DetectedObject(track_id=TRACK_ID, x_center=0.8, y_bottom=0.8)
+                    ]
+                },
+                {STREAM_ID: polygon},
+            )
+
+        key = f"state:loitering:{STREAM_ID}:{TRACK_ID}"
+        # Start timestamp should still be T=1000.0, not T=1004.0
+        assert in_memory_repo._presence[key] == 1000.0
+
+
+class TestOpenCVGeometryEngine:
+    """Tests for OpenCV point containment checks using OpenCVGeometryEngine (US0005)."""
+
+    def test_is_inside_polygon(self):
+        engine = OpenCVGeometryEngine()
+        polygon = [(0.1, 0.1), (0.5, 0.1), (0.3, 0.5)]
+
+        assert engine.is_inside((0.3, 0.2), polygon) is True
+        assert engine.is_inside((0.0, 0.0), polygon) is False
+
+
+class TestRedisStateRepository:
+    """Tests for Redis state repository client interaction and Lua registration."""
+
+    @patch("loitering_detector.infrastructure.persistence.redis.redis.Redis")
+    def test_redis_connect_registers_scripts(self, mock_redis_cls, loitering_config):
         mock_client = MagicMock()
         mock_redis_cls.return_value = mock_client
         mock_client.ping.return_value = True
         mock_client.scan_iter.return_value = []
 
-        engine = LoiteringEngine(loitering_config)
+        repo = RedisStateRepository(loitering_config.redis)
+        repo.connect()
 
-        # When: connecting to Redis
-        engine.connect()
-
-        # Then: scripts are registered and ping is performed
-        assert engine.redis is mock_client
+        assert repo.redis is mock_client
         assert mock_client.register_script.call_count == 2
 
-    def test_disconnect_clears_references(self, engine, mock_redis):
-        """
-        Verify that disconnect() properly cleans up connections and script handles.
+    def test_redis_record_presence_script_call(self, loitering_config, mock_redis):
+        repo = RedisStateRepository(loitering_config.redis, redis_client=mock_redis)
+        mock_script = MagicMock()
+        repo._record_script = mock_script
 
-        Given: a connected engine
-        When: disconnect() is called
-        Then: the connection is closed and script handles are cleared
-        """
-        # When: disconnecting
-        engine.disconnect()
-
-        # Then: client is closed and references are cleared
-        mock_redis.close.assert_called_once()
-        assert engine.redis is None
-        assert engine._record_script is None
-
-
-class TestLoiteringEngineGeometry:
-    """Tests for ROI and coordinate handling (US0005)."""
-
-    def test_is_inside_roi(self, engine):
-        """
-        Test the point-in-polygon logic for identifying if a detection is within an ROI.
-
-        Given: a polygonal ROI definition
-        When: checking points against the polygon
-        Then: it correctly identifies points as inside or outside the bounds
-        """
-        # Given: a triangle in normalized space
-        roi = np.array([[0.1, 0.1], [0.5, 0.1], [0.3, 0.5]], dtype=np.float32)
-
-        # Then: (0.3, 0.2) is inside, (0.0, 0.0) is outside
-        assert engine._is_inside((0.3, 0.2), roi) is True
-        assert engine._is_inside((0.0, 0.0), roi) is False
-
-    def test_coordinate_scaling(self, engine, mock_redis):
-        """
-        Test that normalized ROI coordinates are correctly scaled to the dimensions of the input frames.
-
-        Given: a normalized ROI and a 1080p frame
-        When: a detection at (0.3, 0.2) normalized is processed
-        Then: it is correctly scaled to pixel coordinates and recorded in state
-        """
-        roi_polygons = {1: [(0.1, 0.1), (0.5, 0.1), (0.3, 0.5)]}
-        mock_result = MagicMock()
-        mock_result.orig_shape = (1080, 1920)
-        # Person at (0.3, 0.2) normalized => (576, 216) pixel
-        mock_result.boxes.data = [[570, 100, 582, 216, 5, 0.9, 0]]
-
-        engine._record_script = MagicMock()
-
-        # When: processing results with scaling
-        engine.update({1: mock_result}, roi_polygons)
-
-        # Then: scaling triggers a record for track 5 on stream 1
-        engine._record_script.assert_called()
-        assert (
-            f"state:loitering:{STREAM_ID}:5"
-            in engine._record_script.call_args[1]["keys"]
+        repo.record_presence(
+            STREAM_ID, TRACK_ID, 1000.0, DEFAULT_THRESHOLD, DEFAULT_COOLDOWN_SEC
         )
 
-
-class TestLoiteringEnginePersistence:
-    """Tests for Redis state management (US0006, US0007)."""
-
-    def test_atomic_record_logic(self, engine):
-        """
-        Test that the parameters for atomic state recording in Redis are correctly generated.
-
-        Given: a new object track
-        When: recording object state in Redis
-        Then: the correct Lua script keys and arguments (timestamps and TTLs) are passed
-        """
-        mock_script = MagicMock()
-        engine._record_script = mock_script
-
-        # When: recording a track at T=1000.0
-        with patch("time.time", return_value=1000.0):
-            engine._record(TRACK_KEY, STREAM_ID)
-
-        # Then: script is called with correct keys and calculated TTLs
         mock_script.assert_called_once_with(
             keys=[
                 TRACK_KEY,
@@ -193,60 +246,29 @@ class TestLoiteringEnginePersistence:
             args=[1000.0, 15, DEFAULT_COOLDOWN_SEC],
         )
 
-    def test_cooldown_expiry_logic(self, engine):
-        """
-        Test that the cooldown duration is correctly applied when an object leaves the monitored ROI.
-
-        Given: an object leaving the ROI
-        When: _remove() is called
-        Then: the cooldown TTL is applied to the object's persistence record in Redis
-        """
+    def test_redis_remove_presence_script_call(self, loitering_config, mock_redis):
+        repo = RedisStateRepository(loitering_config.redis, redis_client=mock_redis)
         mock_script = MagicMock()
-        engine._remove_script = mock_script
-        # When: removing a track
-        engine._remove(TRACK_KEY, STREAM_ID)
+        repo._remove_script = mock_script
 
-        # Then: the cooldown TTL is correctly passed to the removal script
-        assert mock_script.call_args[1]["args"][0] == DEFAULT_COOLDOWN_SEC
+        repo.remove_presence(STREAM_ID, TRACK_ID, 1000.0, DEFAULT_COOLDOWN_SEC)
 
-    def test_state_cleanup(self, engine, mock_redis):
-        """
-        Test that the system automatically cleans up loitering records that have exceeded their cooldown.
-
-        Given: a track index containing a stale record (no active sentinel)
-        When: check() is called
-        Then: the stale record is removed from the tracking index
-        """
-        mock_redis.smembers.return_value = {TRACK_KEY}
-        # Given: the record is stale (mget returns None for active sentinel)
-        mock_redis.mget.return_value = [None]
-
-        # When: checking for loitering status
-        engine.check([STREAM_ID])
-
-        # Then: the stale track is removed from the index
-        mock_redis.srem.assert_called_with(
-            f"state:loitering:{STREAM_ID}:index", TRACK_KEY
+        mock_script.assert_called_once_with(
+            keys=[
+                f"{TRACK_KEY}:active",
+                f"state:loitering:{STREAM_ID}:index",
+                TRACK_KEY,
+            ],
+            args=[DEFAULT_COOLDOWN_SEC],
         )
 
-
-class TestLoiteringEngineIdentification:
-    """Tests for loitering detection logic."""
-
-    def test_identify_loiterers(self, engine, mock_redis):
-        """
-        Test that objects residing in the ROI longer than the threshold are correctly identified as loitering.
-
-        Given: an active object that has been in the ROI for 20s (threshold 10s)
-        When: check() is called
-        Then: the object ID is returned as loitering
-        """
+    def test_redis_clear_stream_state(self, loitering_config, mock_redis):
+        repo = RedisStateRepository(loitering_config.redis, redis_client=mock_redis)
         mock_redis.smembers.return_value = {TRACK_KEY}
-        # Given: the object is active and started 20s ago
-        mock_redis.mget.side_effect = [["1"], [str(time.time() - 20)]]
 
-        # When: checking status
-        result = engine.check([STREAM_ID])
+        repo.clear_stream_state(STREAM_ID)
 
-        # Then: track is identified as loitering
-        assert result == {STREAM_ID: [TRACK_ID]}
+        mock_redis.delete.assert_called_once_with(TRACK_KEY, f"{TRACK_KEY}:active")
+        mock_redis.srem.assert_called_once_with(
+            f"state:loitering:{STREAM_ID}:index", TRACK_KEY
+        )

@@ -17,6 +17,7 @@ AlertManager
 import logging
 
 from .alerts import AlertManager
+from .interfaces import DetectedObject, GeometryEngine, LoiteringStateRepository
 from .loitering import LoiteringEngine
 from .system import LoiteringDetectionSystem
 
@@ -24,6 +25,9 @@ __all__ = [
     "LoiteringDetectionSystem",
     "LoiteringEngine",
     "AlertManager",
+    "DetectedObject",
+    "LoiteringStateRepository",
+    "GeometryEngine",
 ]
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
