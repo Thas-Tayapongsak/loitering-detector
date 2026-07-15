@@ -115,10 +115,10 @@ streams:
 ## 🐋 Running with Docker
 
 You can run the entire system (Redis + Ingestion Worker) inside Docker. The container builds are optimized using a multi-stage architecture that:
-* **Separates Build Tools**: Compilers (`gcc`, `g++`, `python3-dev`) are isolated in a temporary builder stage, keeping the final runtime image secure and lightweight.
+* **Separates Build Tools**: Compilers (`gcc`, `g++`, `python3-dev`) and packaging toolchains (`uv`) are isolated in a temporary builder stage, keeping the final runtime image secure, lightweight, and compiler-free.
 * **Caches Dependencies**: Utilizes `uv sync --no-install-project` and BuildKit cache mounts to prevent reinstalling pip packages when project source files change.
-* **Minimizes Footprint**: Resolves pre-compiled binary wheels (`lapx`) and routes to CPU-only PyTorch by default to save 1.8GB+ of CUDA libraries for test/headless runners.
-* **Direct Entrypoints**: Configures the virtual environment directly in the container `PATH` and runs `python` and `pytest` directly to reduce container startup overhead.
+* **Minimizes Footprint**: Resolves pre-compiled binary wheels (`lapx`), routes to CPU-only PyTorch by default (saving 17.5GB+), strips shared library debug symbols (`*.so`), and prunes `.venv` cache/tests, shaving off an additional ~500MB.
+* **Direct Entrypoints**: Configures the virtual environment directly in the container `PATH` and runs `python` and `pytest` directly, removing the need for `uv` in the runtime containers.
 * **Optimized Layer Ownership**: Copies files directly using non-root `worker` ownership (`COPY --chown=worker:worker`), avoiding costly runtime `chown -R` commands that bloat image layer sizes.
 
 To run the application inside Docker, first configure your streams and models in `system_config.docker_example.yml`, then execute the build and run commands described below.

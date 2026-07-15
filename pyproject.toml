@@ -5,8 +5,6 @@ description = "Real-time computer vision system for loitering detection and trac
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "onnx>=1.21.0",
-    "onnxslim>=0.1.91",
     "pydantic>=2.12.5",
     "pyyaml>=6.0.3",
     "redis>=7.4.0",
