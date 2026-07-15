@@ -185,6 +185,11 @@ We use `poethepoet` to execute project checks:
 * **Run unit tests:** `uv run poe unit-test`
 * **Run the full validation pipeline:** `uv run poe ci`
 
+### 4. GitHub Actions CI/CD Pipeline
+Every pull request and push to the `main` or `dev` branches triggers the GitHub Actions CI workflow:
+* **Parallel Verification:** Code syntax formatting, lint checks, static type checks, and unit tests run concurrently to accelerate feedback loops.
+* **Coverage Step Summaries:** PyTest coverage metrics are exported as markdown tables and displayed directly inside the GitHub Actions Job Summary interface for rapid review.
+
 ### 2. Git Pre-Commit Hooks
 We use `pre-commit` to prevent committing invalid or improperly formatted code.
 To install pre-commit git hooks locally:

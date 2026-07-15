@@ -194,6 +194,11 @@ We use `poethepoet` (aliased as `poe`) as our task runner. The following tasks a
   ```
   Runs all checks sequentially (`lint` -> `format-check` -> `typecheck` -> `unit-test`) to validate changes before pushing.
 
+### 5. Remote CI/CD Pipeline (GitHub Actions)
+Remote validation runs automatically on pull requests and pushes to `main` or `dev` branches. To accelerate remote feedback loops:
+* **Parallel Job Execution:** Unlike the local `poe ci` sequence, the GitHub Actions runner executes checks (linting, typechecking, and unit tests) in parallel.
+* **Test Coverage Summaries:** PyTest unit test results and coverage metrics are formatted as a markdown table and published directly to the `GITHUB_STEP_SUMMARY` page for every workflow run.
+
 ---
 
 ## 🧠 Key Design Decisions
