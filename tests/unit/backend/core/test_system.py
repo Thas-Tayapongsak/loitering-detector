@@ -1,5 +1,7 @@
 """Tests for the LoiteringDetectionSystem orchestrator, which coordinates streams, detection, and alerting."""
 
+from pathlib import Path
+from typing import Literal
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import numpy as np
@@ -26,7 +28,7 @@ STREAM_2_SOURCE = "rtsp://test/2"
 
 DEFAULT_IMGSZ = 320
 DEFAULT_CONF = 0.5
-DEFAULT_TRACKER = "bytetrack"
+DEFAULT_TRACKER: Literal["bytetrack", "botsort"] = "bytetrack"
 
 DEFAULT_THRESHOLD = 10.0
 DEFAULT_COOLDOWN_PCT = 0.5
@@ -42,7 +44,7 @@ TRACK_ID = 101
 # Helpers
 
 
-def _make_system_config(weights_path) -> SystemConfig:
+def _make_system_config(weights_path: Path) -> SystemConfig:
     """Build a minimal SystemConfig for testing."""
     return SystemConfig(
         streams=[
@@ -54,7 +56,7 @@ def _make_system_config(weights_path) -> SystemConfig:
             ),
         ],
         detection=DetectionConfig(
-            path=str(weights_path),
+            path=weights_path,
             imgsz=DEFAULT_IMGSZ,
             conf=DEFAULT_CONF,
             tracker=DEFAULT_TRACKER,
@@ -74,12 +76,12 @@ def _make_system_config(weights_path) -> SystemConfig:
 
 
 @pytest.fixture
-def system_config(mock_weights_file):
+def system_config(mock_weights_file: Path) -> SystemConfig:
     return _make_system_config(mock_weights_file)
 
 
 @pytest.fixture
-def mock_stream():
+def mock_stream() -> MagicMock:
     """A mock StreamManager."""
     stream = MagicMock()
     stream.config = MagicMock()
@@ -97,7 +99,7 @@ def mock_stream():
 class TestSystemInit:
     """Tests for __init__ and configuration."""
 
-    def test_default_active_stream_ids(self, system_config):
+    def test_default_active_stream_ids(self, system_config) -> None:
         """
         Test that all configured stream IDs are activated by default if no filter is provided.
 
@@ -113,7 +115,7 @@ class TestSystemInit:
         # Then: both configured streams are active
         assert system.active_stream_ids == [STREAM_1_ID, STREAM_2_ID]
 
-    def test_custom_active_stream_ids(self, system_config):
+    def test_custom_active_stream_ids(self, system_config) -> None:
         """
         Test that only a subset of configured stream IDs can be activated during initialization.
 
@@ -131,7 +133,7 @@ class TestSystemInit:
         # Then: only specified stream is in the active list
         assert system.active_stream_ids == [STREAM_2_ID]
 
-    def test_sample_interval_calculation(self, system_config):
+    def test_sample_interval_calculation(self, system_config) -> None:
         """Sample interval is computed from FPS."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -152,7 +154,7 @@ class TestSystemLifecycle:
     )
     def test_context_manager_calls_start_and_stop(
         self, mock_engine_connect, mock_det_cls, mock_sm_cls, system_config
-    ):
+    ) -> None:
         """
         Test that the system correctly starts and stops resources when used as a context manager.
 
@@ -178,14 +180,14 @@ class TestSystemLifecycle:
             # Then: detector is cleared
             assert system.detector is None
 
-    def test_stop_is_idempotent(self, system_config):
+    def test_stop_is_idempotent(self, system_config) -> None:
         """Calling stop without start does not raise."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
         system = LoiteringDetectionSystem(system_config)
         system.stop()  # Should not raise
 
-    def test_start_detector_raises_if_already_initialized(self, system_config):
+    def test_start_detector_raises_if_already_initialized(self, system_config) -> None:
         """
         Verify that attempting to start the detector when it is already running raises an error.
 
@@ -203,7 +205,7 @@ class TestSystemLifecycle:
         with pytest.raises(ValueError, match="already initialized"):
             system._start_detector()
 
-    def test_stop_detector_clears_reference(self, system_config):
+    def test_stop_detector_clears_reference(self, system_config) -> None:
         """
         Verify that stopping the detector properly cleans up the instance and its reference.
 
@@ -224,7 +226,7 @@ class TestSystemLifecycle:
         assert system.detector is None
         mock_det.stop.assert_called_once()
 
-    def test_stop_detector_noop_if_none(self, system_config):
+    def test_stop_detector_noop_if_none(self, system_config) -> None:
         """_stop_detector is a no-op when detector is None."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -237,7 +239,7 @@ class TestStartStreams:
     """Tests for _start_streams."""
 
     @patch("loitering_detector.core.system.StreamManager")
-    def test_start_streams_populates_dict(self, mock_sm_cls, system_config):
+    def test_start_streams_populates_dict(self, mock_sm_cls, system_config) -> None:
         """
         Test that _start_streams correctly initializes and starts StreamManagers for active streams.
 
@@ -263,7 +265,9 @@ class TestStartStreams:
         mock_stream.start.assert_called_once()
 
     @patch("loitering_detector.core.system.StreamManager")
-    def test_start_streams_skips_non_active_ids(self, mock_sm_cls, system_config):
+    def test_start_streams_skips_non_active_ids(
+        self, mock_sm_cls, system_config
+    ) -> None:
         """Streams not in active_stream_ids are skipped."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -277,7 +281,7 @@ class TestStartStreams:
         assert STREAM_2_ID in system.streams
 
     @patch("loitering_detector.core.system.StreamManager")
-    def test_start_streams_handles_failure(self, mock_sm_cls, system_config):
+    def test_start_streams_handles_failure(self, mock_sm_cls, system_config) -> None:
         """Failed stream start is logged, not raised."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -292,7 +296,7 @@ class TestStartStreams:
 class TestStopStreams:
     """Tests for _stop_streams."""
 
-    def test_stop_streams_calls_stop_on_each(self, system_config):
+    def test_stop_streams_calls_stop_on_each(self, system_config) -> None:
         """_stop_streams calls stop() on every stream."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -307,7 +311,7 @@ class TestStopStreams:
 class TestGetAlerts:
     """Tests for get_alerts."""
 
-    def test_get_alerts_delegates_to_alert_manager(self, system_config):
+    def test_get_alerts_delegates_to_alert_manager(self, system_config) -> None:
         """get_alerts returns a snapshot from AlertManager."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -320,7 +324,7 @@ class TestGetAlerts:
 class TestMonitorThread:
     """Tests for _start_monitor_thread and _monitor_loop."""
 
-    def test_monitor_thread_starts_and_stops(self, system_config):
+    def test_monitor_thread_starts_and_stops(self, system_config) -> None:
         """Monitor thread lifecycle."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -335,7 +339,7 @@ class TestMonitorThread:
         system._stop_monitor_thread()
         assert not system.monitor_thread.is_alive()
 
-    def test_monitor_loop_updates_alerts(self, system_config):
+    def test_monitor_loop_updates_alerts(self, system_config) -> None:
         """_monitor_loop calls check() and updates alerts."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -343,7 +347,7 @@ class TestMonitorThread:
         system.loitering_engine = MagicMock()
         system.alerts.update(STREAM_1_ID, {TRACK_ID})
 
-    def test_monitor_loop_handles_redis_connection_error(self, system_config):
+    def test_monitor_loop_handles_redis_connection_error(self, system_config) -> None:
         """
         Test that the monitor loop survives Redis connection failures by attempting to reconnect.
 
@@ -370,7 +374,7 @@ class TestMonitorThread:
         system.loitering_engine.disconnect.assert_called_once()
         system.loitering_engine.connect.assert_called_once()
 
-    def test_monitor_loop_handles_reconnect_failure(self, system_config):
+    def test_monitor_loop_handles_reconnect_failure(self, system_config) -> None:
         """_monitor_loop continues even if reconnection fails."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -391,7 +395,7 @@ class TestMonitorThread:
 class TestGetRunningStreams:
     """Tests for _get_running_streams."""
 
-    def test_detects_disconnected_streams(self, system_config):
+    def test_detects_disconnected_streams(self, system_config) -> None:
         """Disconnected streams trigger clear_stream."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -406,7 +410,7 @@ class TestGetRunningStreams:
         assert result == set()
         system.loitering_engine.clear_stream.assert_called_with(STREAM_1_ID)
 
-    def test_no_change_when_all_running(self, system_config):
+    def test_no_change_when_all_running(self, system_config) -> None:
         """No clear_stream if all streams are still active."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -425,7 +429,7 @@ class TestGetRunningStreams:
 class TestBatchInfer:
     """Tests for _batch_infer_results."""
 
-    def test_returns_none_when_no_valid_frames(self, system_config):
+    def test_returns_none_when_no_valid_frames(self, system_config) -> None:
         """Returns None if all streams return None frames."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -438,7 +442,7 @@ class TestBatchInfer:
         result = system._batch_infer_results([s1])
         assert result is None
 
-    def test_returns_none_when_detector_is_none(self, system_config):
+    def test_returns_none_when_detector_is_none(self, system_config) -> None:
         """Returns None if detector has not been initialized."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -452,7 +456,7 @@ class TestBatchInfer:
         result = system._batch_infer_results([s1])
         assert result is None
 
-    def test_infers_valid_frames(self, system_config):
+    def test_infers_valid_frames(self, system_config) -> None:
         """
         Test that valid frames from multiple streams are batched together for efficient inference.
 
@@ -480,7 +484,7 @@ class TestBatchInfer:
         # Then: results are mapped correctly
         assert result == {STREAM_1_ID: mock_result}
 
-    def test_skips_non_running_streams(self, system_config):
+    def test_skips_non_running_streams(self, system_config) -> None:
         """Non-running streams are excluded from batch."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -496,7 +500,7 @@ class TestBatchInfer:
 class TestUpdateLoiteringEngine:
     """Tests for _update_loitering_engine."""
 
-    def test_calls_engine_update(self, system_config):
+    def test_calls_engine_update(self, system_config) -> None:
         """Delegates to loitering_engine.update after translating results."""
         from loitering_detector.core.interfaces import DetectedObject
         from loitering_detector.core.system import LoiteringDetectionSystem
@@ -521,7 +525,7 @@ class TestUpdateLoiteringEngine:
             expected_detections, system.roi_polygons
         )
 
-    def test_catches_redis_errors(self, system_config):
+    def test_catches_redis_errors(self, system_config) -> None:
         """Redis errors during update are caught and logged."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -541,7 +545,9 @@ class TestSleepInterval:
 
     @patch("time.sleep")
     @patch("time.perf_counter", return_value=100.05)
-    def test_sleeps_remaining_interval(self, mock_perf, mock_sleep, system_config):
+    def test_sleeps_remaining_interval(
+        self, mock_perf, mock_sleep, system_config
+    ) -> None:
         """Sleeps for the remaining portion of the sample interval."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -556,7 +562,7 @@ class TestSleepInterval:
 
     @patch("time.sleep")
     @patch("time.perf_counter", return_value=100.2)
-    def test_minimum_sleep(self, mock_perf, mock_sleep, system_config):
+    def test_minimum_sleep(self, mock_perf, mock_sleep, system_config) -> None:
         """Sleeps at least 0.001s even if interval has elapsed."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -570,7 +576,7 @@ class TestSleepInterval:
 class TestContextManager:
     """Tests for __enter__ and __exit__."""
 
-    def test_enter_returns_self(self, system_config):
+    def test_enter_returns_self(self, system_config) -> None:
         """__enter__ returns the system instance."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -579,7 +585,7 @@ class TestContextManager:
             result = system.__enter__()
         assert result is system
 
-    def test_exit_calls_stop(self, system_config):
+    def test_exit_calls_stop(self, system_config) -> None:
         """__exit__ calls stop."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -588,7 +594,7 @@ class TestContextManager:
             system.__exit__(None, None, None)
         mock_stop.assert_called_once()
 
-    def test_start_failure_calls_stop(self, system_config):
+    def test_start_failure_calls_stop(self, system_config) -> None:
         """If start() fails, stop() is still called."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -603,7 +609,7 @@ class TestContextManager:
 class TestDetectLoop:
     """Tests for the detect() generator."""
 
-    def test_detect_yields_results_and_none(self, system_config):
+    def test_detect_yields_results_and_none(self, system_config) -> None:
         """detect() yields batch results and None for sleep cycles."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 
@@ -642,7 +648,7 @@ class TestDetectLoop:
         # Should have produced at least one result
         assert len(results) >= 1
 
-    def test_detect_handles_unexpected_error(self, system_config):
+    def test_detect_handles_unexpected_error(self, system_config) -> None:
         """_monitor_loop handles unexpected exceptions."""
         from loitering_detector.core.system import LoiteringDetectionSystem
 

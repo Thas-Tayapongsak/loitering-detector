@@ -22,7 +22,9 @@ WINDOW_OPEN = 1
 # Fixtures
 
 
-def _make_mock_system(stream_ids=None, running=None):
+def _make_mock_system(
+    stream_ids: list[int] | None = None, running: dict[int, bool] | None = None
+) -> MagicMock:
     """Build a mock system with configurable streams."""
     if stream_ids is None:
         stream_ids = [STREAM_1_ID]
@@ -46,7 +48,7 @@ def _make_mock_system(stream_ids=None, running=None):
 
 
 @pytest.fixture
-def mock_system():
+def mock_system() -> MagicMock:
     return _make_mock_system([STREAM_1_ID])
 
 
@@ -56,7 +58,7 @@ def mock_system():
 class TestVisualizerLifecycle:
     """Tests for initialization and main loop control."""
 
-    def test_initialization(self, mock_system):
+    def test_initialization(self, mock_system: MagicMock) -> None:
         """
         Verify that the visualizer correctly initializes its internal state with a provided detection system.
 
@@ -72,7 +74,9 @@ class TestVisualizerLifecycle:
         assert vis.closed_windows == set()
 
     @patch("loitering_detector.visualization.visualizer.cv2")
-    def test_esc_key_breaks_loop(self, mock_cv2, mock_system):
+    def test_esc_key_breaks_loop(
+        self, mock_cv2: MagicMock, mock_system: MagicMock
+    ) -> None:
         """
         Verify that the visualization loop terminates when the ESC key is pressed.
 
@@ -101,7 +105,9 @@ class TestVisualizerWindowManagement:
     """Tests for OpenCV window lifecycle."""
 
     @patch("loitering_detector.visualization.visualizer.cv2")
-    def test_closed_window_stops_stream(self, mock_cv2, mock_system):
+    def test_closed_window_stops_stream(
+        self, mock_cv2: MagicMock, mock_system: MagicMock
+    ) -> None:
         """
         Verify that closing a stream window in the UI causes the corresponding stream to stop.
 
@@ -129,7 +135,9 @@ class TestVisualizerWindowManagement:
         stream.stop.assert_called()
 
     @patch("loitering_detector.visualization.visualizer.cv2")
-    def test_disconnected_stream_cleans_up_window(self, mock_cv2, mock_system):
+    def test_disconnected_stream_cleans_up_window(
+        self, mock_cv2: MagicMock, mock_system: MagicMock
+    ) -> None:
         """
         Verify that the visualizer automatically destroys windows for streams that have disconnected.
 
@@ -155,7 +163,9 @@ class TestVisualizerRendering:
     """Tests for frame rendering and ROI overlays."""
 
     @patch("loitering_detector.visualization.visualizer.cv2")
-    def test_roi_drawing_and_caching(self, mock_cv2, mock_system):
+    def test_roi_drawing_and_caching(
+        self, mock_cv2: MagicMock, mock_system: MagicMock
+    ) -> None:
         """
         Verify that ROI polygons are correctly scaled to pixel space, drawn on the frame, and cached.
 

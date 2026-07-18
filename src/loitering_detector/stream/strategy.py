@@ -23,7 +23,8 @@ from urllib.parse import urlparse
 
 import cv2
 import numpy as np
-import yt_dlp  # type: ignore
+import yt_dlp
+from yt_dlp.utils import DownloadError
 
 from loitering_detector.stream.utils import opencv_ffmpeg_capture_options_context
 
@@ -357,11 +358,13 @@ class LiveStream(StreamStrategy):
 
     def _resolve_youtube_url(self) -> str:
         """Extract direct video URL from YouTube link using yt-dlp."""
+        if not isinstance(self.source, str):
+            raise TypeError("YouTube source must be a string URL.")
         ydl_opts = {"format": "best", "quiet": True, "no_warnings": True}
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             try:
                 info_dict = ydl.extract_info(self.source, download=False)
-            except yt_dlp.DownloadError as e:
+            except DownloadError as e:
                 raise ConnectionError(
                     f"Unable to extract video URL from YouTube link: {self.source}"
                 ) from e
@@ -370,6 +373,7 @@ class LiveStream(StreamStrategy):
                 raise ValueError(
                     f"Unable to extract video URL from YouTube link: {self.source}"
                 )
+            assert isinstance(video_url, str)
             return video_url
 
     def _is_source_reachable(self, url: str) -> bool:

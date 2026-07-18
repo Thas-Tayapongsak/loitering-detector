@@ -1,7 +1,8 @@
 import os
 from pathlib import Path
+from typing import Any, cast
 
-import yaml  # type: ignore
+import yaml
 from pydantic import BaseModel, Field
 
 from loitering_detector.detection.config import DetectionConfig
@@ -67,9 +68,9 @@ class Settings:
 
         self.system = SystemConfig(**self._raw)
 
-    def _read_yaml(self, path: str | Path) -> dict:
+    def _read_yaml(self, path: str | Path) -> dict[str, Any]:
         with open(path) as f:
-            return yaml.safe_load(f)
+            return cast(dict[str, Any], yaml.safe_load(f))
 
 
 def get_config(path: str | Path = "system_config.yml") -> SystemConfig:

@@ -27,7 +27,7 @@ FRAME_ID_LIMIT = 1000000
 
 
 @pytest.fixture
-def stream_config():
+def stream_config() -> StreamConfig:
     """Default stream configuration for testing."""
     return StreamConfig(
         id=STREAM_ID, source=STREAM_SOURCE, name=STREAM_NAME, timeout=STREAM_TIMEOUT
@@ -35,7 +35,7 @@ def stream_config():
 
 
 @pytest.fixture
-def livestream(stream_config):
+def livestream(stream_config: StreamConfig) -> LiveStream:
     """A LiveStream instance with a fast timeout."""
     return LiveStream(source=stream_config.source, timeout=stream_config.timeout)
 
@@ -47,7 +47,12 @@ class TestStreamManager:
     """Tests for the StreamManager orchestrator."""
 
     @patch("loitering_detector.stream.manager.LiveStream")
-    def test_lifecycle(self, mock_strategy_cls, stream_config, mock_frame):
+    def test_lifecycle(
+        self,
+        mock_strategy_cls: MagicMock,
+        stream_config: StreamConfig,
+        mock_frame: np.ndarray,
+    ) -> None:
         """
         Test the full lifecycle of the StreamManager from startup through frame reading to shutdown.
 
@@ -65,6 +70,7 @@ class TestStreamManager:
             # When: a frame is read
             frame = manager.read()
             # Then: the correct frame is returned
+            assert frame is not None
             assert np.array_equal(frame, mock_frame)
 
         # Then: resources are released and the manager is stopped
@@ -72,7 +78,9 @@ class TestStreamManager:
         assert mock_strategy.release.called
 
     @patch("loitering_detector.stream.manager.LiveStream")
-    def test_auto_cleanup_on_failure(self, mock_strategy_cls, stream_config):
+    def test_auto_cleanup_on_failure(
+        self, mock_strategy_cls: MagicMock, stream_config: StreamConfig
+    ) -> None:
         """
         Test that the StreamManager automatically stops and cleans up if the underlying strategy disconnects.
 
@@ -101,8 +109,12 @@ class TestLiveStreamConnection:
     @patch("cv2.VideoCapture")
     @patch("loitering_detector.stream.strategy.socket.create_connection")
     def test_connect_mjpeg(
-        self, mock_socket, mock_video_capture, stream_config, mock_frame
-    ):
+        self,
+        mock_socket: MagicMock,
+        mock_video_capture: MagicMock,
+        stream_config: StreamConfig,
+        mock_frame: np.ndarray,
+    ) -> None:
         """
         Test connecting to a network-based MJPEG or RTSP stream via OpenCV's VideoCapture.
 
@@ -125,7 +137,12 @@ class TestLiveStreamConnection:
         assert mock_video_capture.called
 
     @patch("cv2.VideoCapture")
-    def test_connect_local_device(self, mock_video_capture, livestream, mock_frame):
+    def test_connect_local_device(
+        self,
+        mock_video_capture: MagicMock,
+        livestream: LiveStream,
+        mock_frame: np.ndarray,
+    ) -> None:
         """
         Test connecting to a local device camera via integer index.
 
@@ -146,7 +163,9 @@ class TestLiveStreamConnection:
         assert livestream.resolved_source == 0
 
     @patch("loitering_detector.stream.strategy.socket.create_connection")
-    def test_source_reachability(self, mock_conn, livestream):
+    def test_source_reachability(
+        self, mock_conn: MagicMock, livestream: LiveStream
+    ) -> None:
         """
         Verify socket-based reachability check for RTSP/HTTP sources.
 
@@ -164,7 +183,9 @@ class TestLiveStreamConnection:
         )
 
     @patch("loitering_detector.stream.strategy.socket.create_connection")
-    def test_source_reachability_http_https(self, mock_conn, livestream):
+    def test_source_reachability_http_https(
+        self, mock_conn: MagicMock, livestream: LiveStream
+    ) -> None:
         """
         Verify reachability check infers correct default ports for HTTP and HTTPS.
 
@@ -182,7 +203,7 @@ class TestLiveStreamConnection:
         # Then: it uses port 443
         mock_conn.assert_called_with(("example.com", 443), timeout=livestream.timeout)
 
-    def test_source_reachability_local_path(self, livestream):
+    def test_source_reachability_local_path(self, livestream: LiveStream) -> None:
         """
         Verify reachability check bypasses socket connections for local file paths.
 
@@ -197,7 +218,9 @@ class TestLiveStreamConnection:
         assert reachable is True
 
     @patch("cv2.VideoCapture")
-    def test_connect_aborted_when_stopped(self, mock_video_capture, livestream):
+    def test_connect_aborted_when_stopped(
+        self, mock_video_capture: MagicMock, livestream: LiveStream
+    ) -> None:
         """
         Verify that connect() aborts early if the stream is already marked as stopped.
 
@@ -215,7 +238,9 @@ class TestLiveStreamConnection:
         assert livestream._cap is None
 
     @patch("cv2.VideoCapture")
-    def test_connect_fails_not_opened(self, mock_video_capture, livestream):
+    def test_connect_fails_not_opened(
+        self, mock_video_capture: MagicMock, livestream: LiveStream
+    ) -> None:
         """
         Verify that a ValueError is raised if the video capture fails to open.
 
@@ -232,7 +257,9 @@ class TestLiveStreamConnection:
             livestream.connect()
 
     @patch("cv2.VideoCapture")
-    def test_connect_fails_no_frames(self, mock_video_capture, livestream):
+    def test_connect_fails_no_frames(
+        self, mock_video_capture: MagicMock, livestream: LiveStream
+    ) -> None:
         """
         Verify that a ConnectionError is raised if the video capture opens but cannot read frames.
 
@@ -250,7 +277,9 @@ class TestLiveStreamConnection:
             livestream.connect()
 
     @patch("cv2.VideoCapture")
-    def test_connect_unexpected_state_none_cap(self, mock_video_capture, livestream):
+    def test_connect_unexpected_state_none_cap(
+        self, mock_video_capture: MagicMock, livestream: LiveStream
+    ) -> None:
         """
         Verify RuntimeError is raised if internal state is invalid after initialization.
 
@@ -269,8 +298,13 @@ class TestLiveStreamConnection:
     @patch("loitering_detector.stream.strategy.yt_dlp.YoutubeDL")
     @patch.object(LiveStream, "_is_source_reachable")
     def test_connect_youtube_resolution(
-        self, mock_reachable, mock_yt, mock_cv2, livestream, mock_frame
-    ):
+        self,
+        mock_reachable: MagicMock,
+        mock_yt: MagicMock,
+        mock_cv2: MagicMock,
+        livestream: LiveStream,
+        mock_frame: np.ndarray,
+    ) -> None:
         """
         Verify that YouTube URLs are resolved to direct video streams via yt-dlp.
 
@@ -296,7 +330,9 @@ class TestLiveStreamConnection:
         mock_yt.assert_called_once()
 
     @patch("loitering_detector.stream.strategy.yt_dlp.YoutubeDL")
-    def test_connect_youtube_resolution_error(self, mock_yt, livestream):
+    def test_connect_youtube_resolution_error(
+        self, mock_yt: MagicMock, livestream: LiveStream
+    ) -> None:
         """
         Verify that a ConnectionError is raised if yt-dlp fails to extract the video URL.
 
@@ -306,10 +342,10 @@ class TestLiveStreamConnection:
         """
         livestream.source = "https://youtube.com/watch?v=123"
 
-        import yt_dlp
+        from yt_dlp.utils import DownloadError
 
         mock_ydl = mock_yt.return_value.__enter__.return_value
-        mock_ydl.extract_info.side_effect = yt_dlp.DownloadError("Extraction failed")
+        mock_ydl.extract_info.side_effect = DownloadError("Extraction failed")
 
         # When/Then: connecting raises ConnectionError
         with pytest.raises(ConnectionError, match="Unable to extract video URL"):
@@ -319,7 +355,9 @@ class TestLiveStreamConnection:
 class TestLiveStreamBuffer:
     """Tests for frame buffering and ID management."""
 
-    def test_frame_id_management(self, livestream, mock_frame):
+    def test_frame_id_management(
+        self, livestream: LiveStream, mock_frame: np.ndarray
+    ) -> None:
         """
         Test that frame IDs increment and wrap around at the configured limit.
 
@@ -338,7 +376,9 @@ class TestLiveStreamBuffer:
         # Then: ID wraps back to 0
         assert livestream._frame_id == 0
 
-    def test_read_only_view(self, livestream, mock_frame):
+    def test_read_only_view(
+        self, livestream: LiveStream, mock_frame: np.ndarray
+    ) -> None:
         """
         Verify that returned frames are read-only to prevent downstream corruption.
 
@@ -352,9 +392,10 @@ class TestLiveStreamBuffer:
         frame, _ = livestream.get_frame()
 
         # Then: the frame buffer is read-only
+        assert frame is not None
         assert not frame.flags.writeable
 
-    def test_get_frame_empty_buffer(self, livestream):
+    def test_get_frame_empty_buffer(self, livestream: LiveStream) -> None:
         """
         Verify that get_frame returns None and -1 if the buffer is empty.
 
@@ -373,7 +414,7 @@ class TestLiveStreamBuffer:
 class TestLiveStreamResilience:
     """Tests for timeout, reconnection, and error handling."""
 
-    def test_timeout_detection(self, livestream):
+    def test_timeout_detection(self, livestream: LiveStream) -> None:
         """
         Test that the strategy correctly detects and handles network timeouts.
 
@@ -396,7 +437,9 @@ class TestLiveStreamResilience:
         # Then: it detects a timeout and disconnects
         assert livestream.disconnected is True
 
-    def test_update_loop_sleeps_on_temporary_failure(self, livestream):
+    def test_update_loop_sleeps_on_temporary_failure(
+        self, livestream: LiveStream
+    ) -> None:
         """
         Verify that the update loop sleeps and retries if a frame read temporarily fails.
 
@@ -411,7 +454,7 @@ class TestLiveStreamResilience:
         livestream._cap = mock_cap
         livestream._last_read_time = time.perf_counter()
 
-        def stop_loop(*args):
+        def stop_loop(*args: object) -> None:
             livestream._is_stopped = True
 
         with patch("time.sleep", side_effect=stop_loop) as mock_sleep:
@@ -423,7 +466,9 @@ class TestLiveStreamResilience:
             assert livestream.disconnected is False
 
     @patch("cv2.VideoCapture")
-    def test_update_loop_cv2_error_handling(self, mock_cv2, livestream):
+    def test_update_loop_cv2_error_handling(
+        self, mock_cv2: MagicMock, livestream: LiveStream
+    ) -> None:
         """
         Verify that the update loop catches cv2.error exceptions and handles them gracefully.
 
@@ -439,7 +484,7 @@ class TestLiveStreamResilience:
         livestream._cap = mock_cap
         livestream._last_read_time = time.perf_counter()
 
-        def stop_loop(*args):
+        def stop_loop(*args: object) -> None:
             livestream._is_stopped = True
 
         with patch("time.sleep", side_effect=stop_loop) as mock_sleep:
@@ -451,7 +496,9 @@ class TestLiveStreamResilience:
             assert livestream.disconnected is False
 
     @patch.object(LiveStream, "connect")
-    def test_reconnection_attempt(self, mock_connect, livestream):
+    def test_reconnection_attempt(
+        self, mock_connect: MagicMock, livestream: LiveStream
+    ) -> None:
         """
         Verify that the stream attempts to reconnect if it detects the capture device is closed.
 
@@ -461,7 +508,7 @@ class TestLiveStreamResilience:
         """
         livestream._cap = None
 
-        def set_cap():
+        def set_cap() -> None:
             mock_cap = MagicMock()
             mock_cap.isOpened.return_value = True
             livestream._cap = mock_cap
@@ -476,7 +523,9 @@ class TestLiveStreamResilience:
         mock_connect.assert_called_once()
 
     @patch.object(LiveStream, "connect")
-    def test_reconnection_failure_handling(self, mock_connect, livestream):
+    def test_reconnection_failure_handling(
+        self, mock_connect: MagicMock, livestream: LiveStream
+    ) -> None:
         """
         Verify that if a reconnection attempt fails, the stream is marked as disconnected.
 
@@ -495,7 +544,9 @@ class TestLiveStreamResilience:
         assert livestream.disconnected is True
 
     @patch.object(LiveStream, "_release_cap")
-    def test_release_terminates_cleanly(self, mock_release, livestream):
+    def test_release_terminates_cleanly(
+        self, mock_release: MagicMock, livestream: LiveStream
+    ) -> None:
         """
         Verify that calling release() stops the loop and releases the capture device.
 
@@ -516,8 +567,12 @@ class TestLiveStreamResilience:
     @patch.object(LiveStream, "_update_loop")
     @patch.object(LiveStream, "_release_cap")
     def test_update_aborts_if_not_connected(
-        self, mock_release, mock_loop, mock_connected, livestream
-    ):
+        self,
+        mock_release: MagicMock,
+        mock_loop: MagicMock,
+        mock_connected: MagicMock,
+        livestream: LiveStream,
+    ) -> None:
         """
         Verify that the update method aborts immediately if the capture device is not connected.
 

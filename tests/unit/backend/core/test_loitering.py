@@ -28,7 +28,7 @@ TRACK_KEY = f"state:loitering:{STREAM_ID}:{TRACK_ID}"
 
 # Fixtures
 @pytest.fixture
-def loitering_config():
+def loitering_config() -> LoiteringConfig:
     """Default loitering configuration for testing."""
     return LoiteringConfig(
         threshold=DEFAULT_THRESHOLD,
@@ -38,7 +38,7 @@ def loitering_config():
 
 
 @pytest.fixture
-def in_memory_repo():
+def in_memory_repo() -> InMemoryStateRepository:
     return InMemoryStateRepository()
 
 
@@ -52,12 +52,16 @@ class StubGeometryEngine(GeometryEngine):
 
 
 @pytest.fixture
-def stub_geometry():
+def stub_geometry() -> StubGeometryEngine:
     return StubGeometryEngine()
 
 
 @pytest.fixture
-def engine(loitering_config, in_memory_repo, stub_geometry):
+def engine(
+    loitering_config: LoiteringConfig,
+    in_memory_repo: InMemoryStateRepository,
+    stub_geometry: StubGeometryEngine,
+) -> LoiteringEngine:
     """A LoiteringEngine instance with in-memory persistence and stub geometry."""
     return LoiteringEngine(
         loitering_config, repository=in_memory_repo, geometry=stub_geometry
@@ -71,8 +75,11 @@ class TestLoiteringEngineInit:
     """Tests for class instantiation and property delegation."""
 
     def test_cooldown_calculation(
-        self, loitering_config, in_memory_repo, stub_geometry
-    ):
+        self,
+        loitering_config: LoiteringConfig,
+        in_memory_repo: InMemoryStateRepository,
+        stub_geometry: StubGeometryEngine,
+    ) -> None:
         """Test that the cooldown duration is correctly calculated on init."""
         engine = LoiteringEngine(
             loitering_config, repository=in_memory_repo, geometry=stub_geometry
@@ -80,8 +87,11 @@ class TestLoiteringEngineInit:
         assert engine.cooldown == DEFAULT_COOLDOWN_SEC
 
     def test_injected_dependencies(
-        self, loitering_config, in_memory_repo, stub_geometry
-    ):
+        self,
+        loitering_config: LoiteringConfig,
+        in_memory_repo: InMemoryStateRepository,
+        stub_geometry: StubGeometryEngine,
+    ) -> None:
         """Verify that dependencies are correctly stored in the engine."""
         engine = LoiteringEngine(
             loitering_config, repository=in_memory_repo, geometry=stub_geometry
@@ -93,7 +103,9 @@ class TestLoiteringEngineInit:
 class TestLoiteringEngineDomainLogic:
     """Tests for core domain loitering rules using InMemoryStateRepository (US0006, US0007)."""
 
-    def test_record_presence_inside_roi(self, engine, in_memory_repo):
+    def test_record_presence_inside_roi(
+        self, engine: LoiteringEngine, in_memory_repo: InMemoryStateRepository
+    ) -> None:
         """Test that an object inside the ROI has its presence recorded."""
         detections = {
             STREAM_ID: [DetectedObject(track_id=TRACK_ID, x_center=0.8, y_bottom=0.8)]
@@ -113,7 +125,9 @@ class TestLoiteringEngineDomainLogic:
         )
         assert key in in_memory_repo._stream_indices[STREAM_ID]
 
-    def test_remove_presence_outside_roi(self, engine, in_memory_repo):
+    def test_remove_presence_outside_roi(
+        self, engine: LoiteringEngine, in_memory_repo: InMemoryStateRepository
+    ) -> None:
         """Test that an object outside the ROI is removed from active sentinel status."""
         detections_inside = {
             STREAM_ID: [DetectedObject(track_id=TRACK_ID, x_center=0.8, y_bottom=0.8)]
@@ -136,7 +150,7 @@ class TestLoiteringEngineDomainLogic:
         assert in_memory_repo._presence[key] == 1000.0
         assert in_memory_repo._base_expiry[key] == 1002.0 + DEFAULT_COOLDOWN_SEC
 
-    def test_identify_loiterers(self, engine):
+    def test_identify_loiterers(self, engine: LoiteringEngine) -> None:
         """Test loiterer identification based on thresholds."""
         detections = {
             STREAM_ID: [DetectedObject(track_id=TRACK_ID, x_center=0.8, y_bottom=0.8)]
@@ -159,7 +173,9 @@ class TestLoiteringEngineDomainLogic:
             res_loitering = engine.check([STREAM_ID])
         assert res_loitering == {STREAM_ID: [TRACK_ID]}
 
-    def test_state_cooldown_reentry(self, engine, in_memory_repo):
+    def test_state_cooldown_reentry(
+        self, engine: LoiteringEngine, in_memory_repo: InMemoryStateRepository
+    ) -> None:
         """Verify that returning to ROI during cooldown maintains the same start time."""
         polygon = [(0.0, 0.0), (1.0, 1.0)]
 
@@ -204,7 +220,7 @@ class TestLoiteringEngineDomainLogic:
 class TestOpenCVGeometryEngine:
     """Tests for OpenCV point containment checks using OpenCVGeometryEngine (US0005)."""
 
-    def test_is_inside_polygon(self):
+    def test_is_inside_polygon(self) -> None:
         engine = OpenCVGeometryEngine()
         polygon = [(0.1, 0.1), (0.5, 0.1), (0.3, 0.5)]
 
@@ -216,7 +232,9 @@ class TestRedisStateRepository:
     """Tests for Redis state repository client interaction and Lua registration."""
 
     @patch("loitering_detector.infrastructure.persistence.redis.redis.Redis")
-    def test_redis_connect_registers_scripts(self, mock_redis_cls, loitering_config):
+    def test_redis_connect_registers_scripts(
+        self, mock_redis_cls: MagicMock, loitering_config: LoiteringConfig
+    ) -> None:
         mock_client = MagicMock()
         mock_redis_cls.return_value = mock_client
         mock_client.ping.return_value = True
@@ -228,7 +246,9 @@ class TestRedisStateRepository:
         assert repo.redis is mock_client
         assert mock_client.register_script.call_count == 2
 
-    def test_redis_record_presence_script_call(self, loitering_config, mock_redis):
+    def test_redis_record_presence_script_call(
+        self, loitering_config: LoiteringConfig, mock_redis: MagicMock
+    ) -> None:
         repo = RedisStateRepository(loitering_config.redis, redis_client=mock_redis)
         mock_script = MagicMock()
         repo._record_script = mock_script
@@ -246,7 +266,9 @@ class TestRedisStateRepository:
             args=[1000.0, 15, DEFAULT_COOLDOWN_SEC],
         )
 
-    def test_redis_remove_presence_script_call(self, loitering_config, mock_redis):
+    def test_redis_remove_presence_script_call(
+        self, loitering_config: LoiteringConfig, mock_redis: MagicMock
+    ) -> None:
         repo = RedisStateRepository(loitering_config.redis, redis_client=mock_redis)
         mock_script = MagicMock()
         repo._remove_script = mock_script
@@ -262,7 +284,9 @@ class TestRedisStateRepository:
             args=[DEFAULT_COOLDOWN_SEC],
         )
 
-    def test_redis_clear_stream_state(self, loitering_config, mock_redis):
+    def test_redis_clear_stream_state(
+        self, loitering_config: LoiteringConfig, mock_redis: MagicMock
+    ) -> None:
         repo = RedisStateRepository(loitering_config.redis, redis_client=mock_redis)
         mock_redis.smembers.return_value = {TRACK_KEY}
 

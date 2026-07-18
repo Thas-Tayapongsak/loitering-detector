@@ -1,5 +1,7 @@
 """Tests for the detection and inference pipeline, including model loading, batch processing, and multi-stream tracking."""
 
+from pathlib import Path
+from typing import Literal
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -15,7 +17,7 @@ from loitering_detector.detection.strategy import YOLODetection
 
 DEFAULT_IMGSZ = 640
 DEFAULT_CONF = 0.5
-DEFAULT_TRACKER = "bytetrack"
+DEFAULT_TRACKER: Literal["bytetrack", "botsort"] = "bytetrack"
 DEFAULT_CLASSES = [0]
 
 STREAM_1_ID = 1
@@ -28,10 +30,10 @@ TRACK_ID = 5
 
 
 @pytest.fixture
-def detection_config(mock_weights_file):
+def detection_config(mock_weights_file: Path) -> DetectionConfig:
     """Default detection configuration for testing."""
     return DetectionConfig(
-        path=str(mock_weights_file),
+        path=mock_weights_file,
         imgsz=DEFAULT_IMGSZ,
         conf=DEFAULT_CONF,
         tracker=DEFAULT_TRACKER,
@@ -40,7 +42,7 @@ def detection_config(mock_weights_file):
 
 
 @pytest.fixture
-def mock_results():
+def mock_results() -> MagicMock:
     """Create a mock Results object from Ultralytics."""
     mock = MagicMock(spec=Results)
     mock.boxes = MagicMock()
@@ -56,7 +58,9 @@ class TestDetectionInference:
     """Tests for the DetectionManager and YOLODetection strategy including batch inference and tracking isolation."""
 
     @patch("loitering_detector.detection.strategy.YOLO")
-    def test_yolo_model_loading(self, mock_yolo_cls, detection_config):
+    def test_yolo_model_loading(
+        self, mock_yolo_cls: MagicMock, detection_config: DetectionConfig
+    ) -> None:
         """
         Test that the YOLOv8 model is correctly loaded using the configured weights path.
 
@@ -72,7 +76,9 @@ class TestDetectionInference:
         mock_yolo_cls.assert_called_with(detection_config.path)
 
     @patch("loitering_detector.detection.strategy.YOLO")
-    def test_detection_manager_init(self, mock_yolo_cls, detection_config):
+    def test_detection_manager_init(
+        self, mock_yolo_cls: MagicMock, detection_config: DetectionConfig
+    ) -> None:
         """
         Test that the DetectionManager correctly isolates trackers for multiple independent streams.
 
@@ -103,7 +109,9 @@ class TestDetectionInference:
             assert STREAM_2_ID in manager.trackers
             assert manager.trackers[STREAM_1_ID] is not manager.trackers[STREAM_2_ID]
 
-    def test_detection_manager_infer_mismatch(self, detection_config):
+    def test_detection_manager_infer_mismatch(
+        self, detection_config: DetectionConfig
+    ) -> None:
         """
         Ensure that an error is raised when the number of frames does not match the number of stream IDs.
 
@@ -123,7 +131,9 @@ class TestDetectionInference:
             )
 
     @patch("loitering_detector.detection.strategy.YOLO")
-    def test_yolo_strategy_predict(self, mock_yolo_cls, detection_config):
+    def test_yolo_strategy_predict(
+        self, mock_yolo_cls: MagicMock, detection_config: DetectionConfig
+    ) -> None:
         """
         Verify that inference parameters like confidence and image size are correctly passed to the YOLO model.
 
@@ -149,7 +159,9 @@ class TestDetectionInference:
         )
 
     @patch("loitering_detector.detection.manager.TRACKER_REGISTRY")
-    def test_tracker_selection(self, mock_registry, detection_config):
+    def test_tracker_selection(
+        self, mock_registry: MagicMock, detection_config: DetectionConfig
+    ) -> None:
         """
         Verify that the specified tracking algorithm is correctly instantiated from the registry.
 
@@ -174,8 +186,11 @@ class TestDetectionInference:
 
     @patch("loitering_detector.detection.manager.TRACKER_REGISTRY")
     def test_id_persistence_tracking(
-        self, mock_registry, detection_config, mock_results
-    ):
+        self,
+        mock_registry: MagicMock,
+        detection_config: DetectionConfig,
+        mock_results: MagicMock,
+    ) -> None:
         """
         Verify that object tracking IDs are correctly persisted and mapped onto detection results across frames.
 

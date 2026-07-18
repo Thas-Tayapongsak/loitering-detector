@@ -2,6 +2,7 @@
 
 import logging
 import time
+from types import TracebackType
 
 from loitering_detector.config import LoiteringConfig
 from loitering_detector.core.interfaces import (
@@ -54,14 +55,20 @@ class LoiteringEngine:
         """Close connection to the repository."""
         self.repository.disconnect()
 
-    def __enter__(self):
+    def __enter__(self) -> "LoiteringEngine":
         """Establish connection on context entry."""
         self.connect()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool | None:
         """Close connection on context exit."""
         self.disconnect()
+        return None
 
     def clear_stream(self, stream_id: int) -> None:
         """

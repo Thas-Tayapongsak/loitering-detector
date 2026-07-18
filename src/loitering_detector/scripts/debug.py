@@ -6,11 +6,12 @@ For local development only. Requires ``opencv-python`` (not headless).
 import logging
 import sys
 
+from loitering_detector.config import SystemConfig
 from loitering_detector.core.system import LoiteringDetectionSystem
 from loitering_detector.visualization import DebugVisualizer
 
 
-def run(config) -> None:
+def run(config: SystemConfig) -> None:
     """Core debug UI execution logic."""
     import cv2  # Lazy import: keeps this module importable in headless environments.
 

@@ -178,7 +178,7 @@ class DetectionManager:
         if tracker_entry is None:
             raise ValueError(f"Unknown tracker: {self.config.tracker}")
         cls, args_cls = tracker_entry
-        return lambda: cls(args_cls())
+        return lambda: cls(args_cls())  # type: ignore[no-untyped-call]
 
     def _init_strategy(self) -> DetectionStrategy:
         """Initialize the default detection strategy."""

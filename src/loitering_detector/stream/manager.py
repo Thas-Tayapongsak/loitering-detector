@@ -14,6 +14,7 @@ StreamManager
 __all__ = ["StreamManager"]
 
 import threading
+from types import TracebackType
 
 import numpy as np
 
@@ -81,14 +82,20 @@ class StreamManager:
         self._thread: threading.Thread | None = None
         self._strategy: StreamStrategy | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> "StreamManager":
         """Start the stream on context entry."""
         self.start()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool | None:
         """Stop the stream on context exit."""
         self.stop()
+        return None
 
     def start(self) -> None:
         """Initialize the strategy and start the capture thread."""

@@ -14,7 +14,9 @@ __all__ = ["opencv_ffmpeg_capture_options_context"]
 
 import os
 import threading
+from collections.abc import Generator
 from contextlib import contextmanager
+from typing import Any
 
 _lock = threading.Lock()
 
@@ -24,8 +26,8 @@ def opencv_ffmpeg_capture_options_context(
     reconnect: int | None = 1,
     reconnect_streamed: int | None = 1,
     reconnect_delay_max: int | None = 5,
-    **extra_options,
-):
+    **extra_options: Any,
+) -> Generator[None, None, None]:
     """
     Safely set `OPENCV_FFMPEG_CAPTURE_OPTIONS` for `cv2.VideoCapture`.
 

@@ -1,7 +1,8 @@
 import logging
 import threading
 import time
-from collections.abc import Generator
+from collections.abc import Generator, Mapping
+from types import TracebackType
 
 import redis
 from ultralytics.engine.results import Results
@@ -120,14 +121,20 @@ class LoiteringDetectionSystem:
         self.stop_event = threading.Event()
         self.monitor_thread: threading.Thread | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> "LoiteringDetectionSystem":
         """Establish system resources on context entry."""
         self.start()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool | None:
         """Clean up system resources on context exit."""
         self.stop()
+        return None
 
     def get_alerts(self) -> dict[int, dict[int, float]]:
         """
@@ -312,7 +319,7 @@ class LoiteringDetectionSystem:
         results = self.detector.infer(valid_frames, valid_stream_ids)
         return dict(zip(valid_stream_ids, results, strict=True))
 
-    def _update_loitering_engine(self, batch_results: dict[int, Results]) -> None:
+    def _update_loitering_engine(self, batch_results: Mapping[int, Results]) -> None:
         """Update the loitering engine with fresh detection results."""
         try:
             detections: dict[int, list[DetectedObject]] = {}

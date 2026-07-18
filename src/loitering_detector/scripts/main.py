@@ -3,10 +3,11 @@ import logging
 import os
 import signal
 import sys
+from typing import Any
 
 import redis
 
-from loitering_detector.config import get_config
+from loitering_detector.config import SystemConfig, get_config
 
 # Shared Error Classification
 INFRA_ERRORS = (
@@ -15,7 +16,7 @@ INFRA_ERRORS = (
 )
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Loitering Detection System CLI",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -40,14 +41,14 @@ def parse_args():
     return parser.parse_args()
 
 
-def shutdown_handler(signum, frame):
+def shutdown_handler(signum: int, frame: Any) -> None:
     """Unified handler for SIGINT and SIGTERM."""
     signame = signal.Signals(signum).name
     logging.info("\n%s received. Shutting down gracefully...", signame)
     sys.exit(0)
 
 
-def _log_infra_error(e, config):
+def _log_infra_error(e: Exception, config: SystemConfig) -> None:
     """Shared infrastructure error reporting."""
     logging.critical("Infrastructure failure: %s", e)
     logging.info(
@@ -55,7 +56,7 @@ def _log_infra_error(e, config):
     )
 
 
-def main():
+def main() -> None:
     args = parse_args()
 
     # Shared Logging Setup

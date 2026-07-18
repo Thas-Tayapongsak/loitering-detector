@@ -1,6 +1,6 @@
 """Tests for the loitering alert lifecycle and management logic."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -22,13 +22,13 @@ TRACK_ID = 101
 
 
 @pytest.fixture
-def alert_config():
+def alert_config() -> AlertConfig:
     """Default alert configuration for testing."""
     return AlertConfig(interval=ALERT_INTERVAL)
 
 
 @pytest.fixture
-def alert_manager(alert_config):
+def alert_manager(alert_config: AlertConfig) -> AlertManager:
     """An AlertManager instance."""
     return AlertManager(alert_config)
 
@@ -40,7 +40,9 @@ class TestAlertLifecycle:
     """Tests for the lifecycle of loitering alerts including new, continuing, and cleared events."""
 
     @patch("loitering_detector.core.alerts.logger")
-    def test_initial_loitering_alert(self, mock_logger, alert_manager):
+    def test_initial_loitering_alert(
+        self, mock_logger: MagicMock, alert_manager: AlertManager
+    ) -> None:
         """
         Test that a new alert log is generated immediately when an object is detected loitering.
 
@@ -59,7 +61,9 @@ class TestAlertLifecycle:
         assert args[2] == TRACK_ID
 
     @patch("loitering_detector.core.alerts.logger")
-    def test_no_alert_when_interval_not_reached(self, mock_logger, alert_manager):
+    def test_no_alert_when_interval_not_reached(
+        self, mock_logger: MagicMock, alert_manager: AlertManager
+    ) -> None:
         """
         Test that no duplicate alert is generated if the configured interval has not yet elapsed.
 
@@ -84,7 +88,9 @@ class TestAlertLifecycle:
         )
 
     @patch("loitering_detector.core.alerts.logger")
-    def test_continuing_alert_when_interval_reached(self, mock_logger, alert_manager):
+    def test_continuing_alert_when_interval_reached(
+        self, mock_logger: MagicMock, alert_manager: AlertManager
+    ) -> None:
         """
         Test that a continuing alert is generated once the configured interval has elapsed.
 
@@ -110,7 +116,9 @@ class TestAlertLifecycle:
         assert args[1] == TRACK_ID
 
     @patch("loitering_detector.core.alerts.logger")
-    def test_alert_cleared_log_generated(self, mock_logger, alert_manager):
+    def test_alert_cleared_log_generated(
+        self, mock_logger: MagicMock, alert_manager: AlertManager
+    ) -> None:
         """
         Test that a cleared alert log is generated when a loitering object leaves the ROI.
 
@@ -132,7 +140,9 @@ class TestAlertLifecycle:
         assert args[1] == TRACK_ID
         assert args[2] == STREAM_ID
 
-    def test_object_removed_from_state_on_exit(self, alert_manager):
+    def test_object_removed_from_state_on_exit(
+        self, alert_manager: AlertManager
+    ) -> None:
         """
         Test that a loitering object is removed from the internal tracking state upon leaving the ROI.
 

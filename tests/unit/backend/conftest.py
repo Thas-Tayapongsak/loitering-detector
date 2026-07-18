@@ -1,5 +1,8 @@
 """Global fixtures for backend unit tests."""
 
+from collections.abc import Callable, Generator
+from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -12,13 +15,13 @@ _ORIGINAL_REDIS_CLASS = redis.Redis
 
 
 @pytest.fixture
-def mock_frame():
+def mock_frame() -> np.ndarray:
     """A dummy 100x100 RGB frame."""
     return np.zeros((100, 100, 3), dtype=np.uint8)
 
 
 @pytest.fixture
-def mock_weights_file(tmp_path):
+def mock_weights_file(tmp_path: Path) -> Path:
     """Create a dummy weights file for configuration and model loading tests."""
     path = tmp_path / "mock.pt"
     path.write_text("dummy weights")
@@ -26,13 +29,13 @@ def mock_weights_file(tmp_path):
 
 
 @pytest.fixture
-def create_mock_weights():
+def create_mock_weights() -> Generator[Callable[[str], str], None, None]:
     """Fixture that returns a helper to create a mock weights file at any path."""
     import os
 
     created_files = []
 
-    def _create(path: str):
+    def _create(path: str) -> str:
         os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
         with open(path, "w") as f:
             f.write("dummy weights for offline testing")
@@ -56,7 +59,7 @@ def generate_synthetic_frame(
     channels: int = 3,
     color: tuple[int, int, int] = (0, 0, 0),
     draw_shape: str | None = None,
-    shape_coords: tuple | None = None,
+    shape_coords: tuple[Any, ...] | None = None,
 ) -> np.ndarray:
     """
     Generate a synthetic mock video stream frame as a NumPy array.
@@ -90,13 +93,13 @@ def generate_synthetic_frame(
 
 
 @pytest.fixture
-def synthetic_frame_generator():
+def synthetic_frame_generator() -> Callable[..., np.ndarray]:
     """Fixture providing a generator for synthetic video frames."""
     return generate_synthetic_frame
 
 
 @pytest.fixture
-def mock_redis():
+def mock_redis() -> MagicMock:
     """A standard mock Redis client for unit testing."""
     mock = MagicMock(spec=_ORIGINAL_REDIS_CLASS)
     mock.decode_responses = True
@@ -109,7 +112,7 @@ def mock_redis():
 
 
 @pytest.fixture(autouse=True)
-def stub_redis_network(monkeypatch):
+def stub_redis_network(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     """
     Autouse fixture that patches redis.Redis globally during backend unit tests
     to prevent any accidental external network calls to a Redis server.

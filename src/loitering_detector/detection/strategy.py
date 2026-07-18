@@ -18,7 +18,7 @@ __all__ = ["DetectionStrategy", "YOLODetection"]
 from abc import ABC, abstractmethod
 
 import numpy as np
-from ultralytics import YOLO
+from ultralytics import YOLO  # type: ignore[attr-defined]
 from ultralytics.engine.results import Results
 
 from loitering_detector.detection.config import DetectionConfig

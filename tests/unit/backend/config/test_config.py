@@ -1,6 +1,7 @@
 """Tests for configuration models and settings loader."""
 
 import os
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -39,7 +40,7 @@ DEFAULT_TRACKER = "botsort"
 
 
 @pytest.fixture
-def sample_config_yaml(tmp_path, mock_weights_file):
+def sample_config_yaml(tmp_path: Path, mock_weights_file: Path) -> Path:
     """Write a valid system config YAML and return its path."""
     config_data = {
         "streams": [
@@ -78,7 +79,7 @@ def sample_config_yaml(tmp_path, mock_weights_file):
 class TestRedisConfig:
     """Tests for the RedisConfig data model validation."""
 
-    def test_valid_config(self):
+    def test_valid_config(self) -> None:
         """
         Test that a valid Redis configuration can be instantiated.
 
@@ -93,7 +94,7 @@ class TestRedisConfig:
         assert config.host == "redis.local"
         assert config.port == REDIS_PORT_ALT
 
-    def test_default_missing_field_raises(self):
+    def test_default_missing_field_raises(self) -> None:
         """
         Test that missing required fields raise a validation error.
 
@@ -103,25 +104,25 @@ class TestRedisConfig:
         """
         # Then: initializing without a port raises an exception
         with pytest.raises(ValidationError):
-            RedisConfig(host=REDIS_HOST)  # port is required
+            RedisConfig.model_validate({"host": REDIS_HOST})  # port is required
 
 
 class TestAlertConfig:
     """Tests for AlertConfig model."""
 
-    def test_defaults(self):
-        config = AlertConfig()
+    def test_defaults(self) -> None:
+        config = AlertConfig.model_validate({})
         assert config.interval == 60.0
 
-    def test_custom_interval(self):
+    def test_custom_interval(self) -> None:
         config = AlertConfig(interval=30.0)
         assert config.interval == 30.0
 
-    def test_zero_interval(self):
+    def test_zero_interval(self) -> None:
         config = AlertConfig(interval=0.0)
         assert config.interval == 0.0
 
-    def test_negative_interval_raises(self):
+    def test_negative_interval_raises(self) -> None:
         with pytest.raises(ValidationError):
             AlertConfig(interval=-1.0)
 
@@ -129,7 +130,7 @@ class TestAlertConfig:
 class TestLoiteringConfig:
     """Tests for the LoiteringConfig data model and its boundary validations."""
 
-    def test_valid_config(self):
+    def test_valid_config(self) -> None:
         """
         Test that a complete loitering configuration is valid.
 
@@ -147,7 +148,7 @@ class TestLoiteringConfig:
         assert config.threshold == 60.0
         assert config.cooldown_percentage == DEFAULT_COOLDOWN
 
-    def test_cooldown_boundary_values(self):
+    def test_cooldown_boundary_values(self) -> None:
         """
         Test that the cooldown percentage accepts values at the boundaries of [0, 1].
 
@@ -171,7 +172,7 @@ class TestLoiteringConfig:
         )
         assert config_one.cooldown_percentage == 1.0
 
-    def test_cooldown_over_one_raises(self):
+    def test_cooldown_over_one_raises(self) -> None:
         """
         Test that a cooldown percentage greater than 1.0 raises a validation error.
 
@@ -191,7 +192,7 @@ class TestLoiteringConfig:
 class TestSettings:
     """Tests for the YAML-based settings loader and environment variable overrides."""
 
-    def test_loads_from_yaml(self, sample_config_yaml):
+    def test_loads_from_yaml(self, sample_config_yaml: Path) -> None:
         """
         Test that the Settings class correctly parses a YAML configuration file.
 
@@ -207,7 +208,7 @@ class TestSettings:
         assert len(settings.system.streams) == 1
         assert settings.system.loitering.threshold == DEFAULT_THRESHOLD
 
-    def test_env_override_redis_host(self, sample_config_yaml):
+    def test_env_override_redis_host(self, sample_config_yaml: Path) -> None:
         """
         Test that the REDIS_HOST environment variable overrides values in the YAML file.
 
@@ -222,7 +223,7 @@ class TestSettings:
             # Then: environment value wins
             assert settings.system.loitering.redis.host == "redis-prod.local"
 
-    def test_env_override_redis_port(self, sample_config_yaml):
+    def test_env_override_redis_port(self, sample_config_yaml: Path) -> None:
         """
         Test that the REDIS_PORT environment variable overrides values in the YAML file.
 
@@ -237,7 +238,7 @@ class TestSettings:
             # Then: environment value wins and is cast to int
             assert settings.system.loitering.redis.port == REDIS_PORT_ALT
 
-    def test_both_env_overrides(self, sample_config_yaml):
+    def test_both_env_overrides(self, sample_config_yaml: Path) -> None:
         """
         Test that both host and port can be simultaneously overridden by environment variables.
         """
@@ -250,11 +251,11 @@ class TestSettings:
 class TestGetConfig:
     """Tests for get_config helper."""
 
-    def test_returns_system_config(self, sample_config_yaml):
+    def test_returns_system_config(self, sample_config_yaml: Path) -> None:
         config = get_config(sample_config_yaml)
         assert isinstance(config, SystemConfig)
         assert config.sample_fps == DEFAULT_FPS
 
-    def test_invalid_path_raises(self):
+    def test_invalid_path_raises(self) -> None:
         with pytest.raises(FileNotFoundError):
             get_config("/nonexistent/config.yml")
