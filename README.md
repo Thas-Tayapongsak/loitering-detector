@@ -185,10 +185,12 @@ We use `poethepoet` to execute project checks:
 * **Run unit tests:** `uv run poe unit-test`
 * **Run the full validation pipeline:** `uv run poe ci`
 
-### 4. GitHub Actions CI/CD Pipeline
-Every pull request and push to the `main` or `dev` branches triggers the GitHub Actions CI workflow:
-* **Parallel Verification:** Code syntax formatting, lint checks, static type checks, and unit tests run concurrently to accelerate feedback loops.
-* **Coverage Step Summaries:** PyTest coverage metrics are exported as markdown tables and displayed directly inside the GitHub Actions Job Summary interface for rapid review.
+### 4. GitHub Actions CI/CD & Release Pipeline
+Every pull request, push to `main` or `dev`, and release action triggers GHA workflows:
+* **Parallel Verification:** Code syntax checks (Ruff and Black), static type checking (MyPy), and unit tests (across Python 3.12 and 3.13) run concurrently to minimize PR feedback delay.
+* **Coverage Gates:** Test coverage is validated against a strict **80.0%** quality gate configured in `pyproject.toml` (excluding scripts). Test metrics and summaries are published directly to the Actions Job Summary page for rapid review.
+* **Automated Versioning & Releases:** Pushes/merges to `main` use `release-please` to manage semantic version bumps, tag creation, changelogs, and to compile wheels via `uv build` before attaching them directly to newly published GitHub Releases.
+* **Lockfile Synchronization:** PRs created by the release bot automatically trigger a synchronization workflow that runs `uv lock` and commits the updated `uv.lock` file back to the branch, avoiding test failures due to package version differences.
 
 ### 2. Git Pre-Commit Hooks
 We use `pre-commit` to prevent committing invalid or improperly formatted code.

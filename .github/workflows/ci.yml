@@ -7,29 +7,6 @@ on:
     branches: [ "main", "dev"]
 
 jobs:
-  build:
-    name: Build and Install
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    strategy:
-      fail-fast: true
-      matrix:
-        python-version: [ "3.12", "3.13" ]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-          cache-dependency-glob: "uv.lock"
-          python-version: ${{ matrix.python-version }}
-      - name: Log uv version
-        run: uv --version
-      - name: Check uv lockfile sync
-        run: uv lock --check
-      - name: Install dependencies
-        run: uv sync --frozen --extra headless --dev
-
   lint-and-format:
     name: Lint and Format
     runs-on: ubuntu-latest
@@ -43,10 +20,13 @@ jobs:
           cache-dependency-glob: "uv.lock"
       - name: Install dependencies
         run: uv sync --frozen --extra headless --dev
+      - name: Check uv lockfile sync
+        run: uv lock --check
       - name: Lint with Ruff
         run: uv run poe lint
       - name: Format with Black
         run: uv run poe format-check
+
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest

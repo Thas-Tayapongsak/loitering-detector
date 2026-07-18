@@ -194,10 +194,12 @@ We use `poethepoet` (aliased as `poe`) as our task runner. The following tasks a
   ```
   Runs all checks sequentially (`lint` -> `format-check` -> `typecheck` -> `unit-test`) to validate changes before pushing.
 
-### 5. Remote CI/CD Pipeline (GitHub Actions)
-Remote validation runs automatically on pull requests and pushes to `main` or `dev` branches. To accelerate remote feedback loops:
-* **Parallel Job Execution:** Unlike the local `poe ci` sequence, the GitHub Actions runner executes checks (linting, typechecking, and unit tests) in parallel.
-* **Test Coverage Summaries:** PyTest unit test results and coverage metrics are formatted as a markdown table and published directly to the `GITHUB_STEP_SUMMARY` page for every workflow run.
+### 5. Remote CI/CD & Automated Release Pipeline (GitHub Actions)
+Remote validation and releases run automatically on pull requests and branch actions:
+* **Parallel Job Execution:** Unlike the local `poe ci` sequence, the GitHub Actions runner executes checks (linting and formatting, typechecking, and matrix unit testing on Python 3.12 & 3.13) in parallel to optimize PR build speeds.
+* **Test Coverage summaries & Gates:** Unit tests enforce a minimum of **80.0%** code coverage (configured via `[tool.coverage.report]` in `pyproject.toml`, excluding CLI script files). Coverage metrics and test results are automatically formatted as markdown and posted directly to the `GITHUB_STEP_SUMMARY` page for every run.
+* **Automated Versioning & Release (CD):** Pushes to the `main` branch trigger a Release pipeline using `google-github-actions/release-please-action`. It parses Conventional Commits since the last release to automatically open/update a Release PR. Once that Release PR is merged, it tags the commit, generates the changelog, compiles source and wheel package distributions using `uv build`, and attaches them to the new GitHub Release.
+* **Lockfile Auto-Synchronization:** Since version bumps in `pyproject.toml` desynchronize `uv.lock`, a companion workflow automatically runs `uv lock` on bot-generated `release-please` branches and commits the synchronized `uv.lock` back to the release PR branch.
 
 ---
 

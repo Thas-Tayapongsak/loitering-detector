@@ -1,0 +1,36 @@
+name: Update uv.lock for Release PR
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches:
+      - main
+
+jobs:
+  update-lock:
+    if: startsWith(github.head_ref, 'release-please--')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Use RELEASE_PLEASE_TOKEN (PAT) if configured, fallback to GITHUB_TOKEN
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          ref: ${{ github.head_ref }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Update uv lockfile
+        run: uv lock
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add uv.lock
+          if ! git diff-index --quiet HEAD; then
+            git commit -m "chore: update uv.lock for version bump"
+            git push
+          fi
