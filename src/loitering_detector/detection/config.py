@@ -13,18 +13,26 @@ BYTETrackArgs
     Arguments for the BYTETrack tracker algorithm.
 BoTSORTArgs
     Arguments for the BoT-SORT tracker algorithm.
+TrackerType
+    Supported multi-object tracking algorithms.
 """
 
 __all__ = [
     "DetectionConfig",
     "BYTETrackArgs",
     "BoTSORTArgs",
+    "TrackerType",
 ]
 
 from dataclasses import dataclass
-from typing import Literal
+from enum import StrEnum
 
 from pydantic import BaseModel, Field, FilePath
+
+
+class TrackerType(StrEnum):
+    BYTETRACK = "bytetrack"
+    BOTSORT = "botsort"
 
 
 class DetectionConfig(BaseModel):
@@ -66,7 +74,7 @@ class DetectionConfig(BaseModel):
     path: FilePath
     imgsz: int = Field(640, gt=0)
     conf: float = Field(0.5, ge=0.0, le=1.0)
-    tracker: Literal["bytetrack", "botsort"] = "bytetrack"
+    tracker: TrackerType = TrackerType.BYTETRACK
     classes: list[int] = Field(default_factory=lambda: [0])
 
 

@@ -1,7 +1,6 @@
 """Tests for the LoiteringDetectionSystem orchestrator, which coordinates streams, detection, and alerting."""
 
 from pathlib import Path
-from typing import Literal
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import numpy as np
@@ -14,7 +13,7 @@ from loitering_detector.config import (
     RedisConfig,
     SystemConfig,
 )
-from loitering_detector.detection.config import DetectionConfig
+from loitering_detector.detection.config import DetectionConfig, TrackerType
 from loitering_detector.stream.config import StreamConfig
 
 # Constants
@@ -28,7 +27,7 @@ STREAM_2_SOURCE = "rtsp://test/2"
 
 DEFAULT_IMGSZ = 320
 DEFAULT_CONF = 0.5
-DEFAULT_TRACKER: Literal["bytetrack", "botsort"] = "bytetrack"
+DEFAULT_TRACKER: TrackerType = TrackerType.BYTETRACK
 
 DEFAULT_THRESHOLD = 10.0
 DEFAULT_COOLDOWN_PCT = 0.5

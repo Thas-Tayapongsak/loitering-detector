@@ -2,6 +2,13 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from enum import StrEnum
+
+
+class AlertSeverity(StrEnum):
+    ALERT = "ALERT"
+    INFO = "INFO"
+    CLEARED = "CLEARED"
 
 
 @dataclass(frozen=True)

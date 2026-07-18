@@ -21,6 +21,7 @@ import threading
 import time
 
 from loitering_detector.config import AlertConfig
+from loitering_detector.core.interfaces import AlertSeverity
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,7 @@ class AlertManager:
             for track_id in current_loiterers:
                 if track_id not in active_for_stream:
                     logger.info(
-                        "[ALERT] New loitering detected: Stream %s, Object %s",
+                        f"[{AlertSeverity.ALERT.value}] New loitering detected: Stream %s, Object %s",
                         stream_id,
                         track_id,
                     )
@@ -103,7 +104,7 @@ class AlertManager:
                     last_alert = active_for_stream[track_id]
                     if current_time - last_alert >= self.config.interval:
                         logger.info(
-                            "[INFO] Object %s is still loitering in Stream %s",
+                            f"[{AlertSeverity.INFO.value}] Object %s is still loitering in Stream %s",
                             track_id,
                             stream_id,
                         )
@@ -114,7 +115,7 @@ class AlertManager:
             for track_id in past_loiterers:
                 if track_id not in current_loiterers:
                     logger.info(
-                        "[CLEARED] Object %s has left Stream %s",
+                        f"[{AlertSeverity.CLEARED.value}] Object %s has left Stream %s",
                         track_id,
                         stream_id,
                     )

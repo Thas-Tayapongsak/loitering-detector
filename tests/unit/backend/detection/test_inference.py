@@ -1,7 +1,6 @@
 """Tests for the detection and inference pipeline, including model loading, batch processing, and multi-stream tracking."""
 
 from pathlib import Path
-from typing import Literal
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -9,7 +8,7 @@ import pytest
 import torch
 from ultralytics.engine.results import Results
 
-from loitering_detector.detection.config import DetectionConfig
+from loitering_detector.detection.config import DetectionConfig, TrackerType
 from loitering_detector.detection.manager import DetectionManager
 from loitering_detector.detection.strategy import YOLODetection
 
@@ -17,7 +16,7 @@ from loitering_detector.detection.strategy import YOLODetection
 
 DEFAULT_IMGSZ = 640
 DEFAULT_CONF = 0.5
-DEFAULT_TRACKER: Literal["bytetrack", "botsort"] = "bytetrack"
+DEFAULT_TRACKER: TrackerType = TrackerType.BYTETRACK
 DEFAULT_CLASSES = [0]
 
 STREAM_1_ID = 1
@@ -170,7 +169,7 @@ class TestDetectionInference:
         Then: the tracker class associated with "botsort" is instantiated
         """
         # Given: "botsort" configuration
-        detection_config.tracker = "botsort"
+        detection_config.tracker = TrackerType.BOTSORT
         mock_tracker_cls = MagicMock()
         mock_args_cls = MagicMock()
         mock_registry.get.return_value = (mock_tracker_cls, mock_args_cls)
