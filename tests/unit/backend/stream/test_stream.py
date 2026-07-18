@@ -66,7 +66,7 @@ class TestStreamManager:
 
         # When: the StreamManager is started
         with StreamManager(stream_config) as manager:
-            assert manager.is_running is True
+            assert manager.is_running
             # When: a frame is read
             frame = manager.read()
             # Then: the correct frame is returned
@@ -74,7 +74,7 @@ class TestStreamManager:
             assert np.array_equal(frame, mock_frame)
 
         # Then: resources are released and the manager is stopped
-        assert manager.is_running is False
+        assert not manager.is_running
         assert mock_strategy.release.called
 
     @patch("loitering_detector.stream.manager.LiveStream")
@@ -100,7 +100,7 @@ class TestStreamManager:
 
         # Then: the manager stops and returns None
         assert frame is None
-        assert manager.is_running is False
+        assert not manager.is_running
 
 
 class TestLiveStreamConnection:
