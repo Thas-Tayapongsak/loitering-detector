@@ -99,7 +99,7 @@ def synthetic_frame_generator() -> Callable[..., np.ndarray]:
 
 
 @pytest.fixture
-def mock_redis() -> MagicMock:
+def mock_redis() -> Generator[MagicMock, None, None]:
     """A standard mock Redis client for unit testing."""
     mock = MagicMock(spec=_ORIGINAL_REDIS_CLASS)
     mock.decode_responses = True
@@ -108,7 +108,8 @@ def mock_redis() -> MagicMock:
     mock_script = MagicMock()
     mock.register_script.return_value = mock_script
 
-    return mock
+    yield mock
+    mock.reset_mock()
 
 
 @pytest.fixture(autouse=True)
@@ -127,3 +128,16 @@ def stub_redis_network(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     # Monkeypatch the redis.Redis class to return the mock client
     monkeypatch.setattr(redis, "Redis", MagicMock(return_value=mock_client))
     return mock_client
+
+
+@pytest.fixture(autouse=True)
+def block_network_sockets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Global fixture to block all outgoing network connections during unit testing."""
+    import socket
+
+    def guarded_socket(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError(
+            "Outgoing network requests are disabled during unit test execution."
+        )
+
+    monkeypatch.setattr(socket, "socket", guarded_socket)

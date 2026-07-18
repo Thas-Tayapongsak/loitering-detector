@@ -40,6 +40,8 @@ jobs:
           cache-dependency-glob: "uv.lock"
       - name: Install dependencies
         run: uv sync --frozen --extra headless --dev
+      - name: Register MyPy problem matcher
+        run: echo "::add-matcher::.github/workflows/mypy-matcher.json"
       - name: Type check with MyPy
         run: uv run poe typecheck
 
