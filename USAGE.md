@@ -90,8 +90,8 @@ detection:
   # Model confidence threshold (higher filters false positives, lower increases recall)
   conf: 0.3
 
-  # Tracking algorithm option: 'bytetrack' or 'botsort'
-  tracker: "botsort"
+  # Tracking algorithm option: 'bytetrack'
+  tracker: "bytetrack"
 
   # List of COCO classes to filter for (0 = person)
   classes:

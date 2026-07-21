@@ -57,7 +57,7 @@ To enforce the separation of concerns, the codebase is divided into four distinc
 *   **Responsibility:** Provides concrete implementations of the abstract interfaces defined in the Domain layer and manages third-party frameworks.
 *   **Key Components:**
     *   `src/loitering_detector/stream/manager.py` & `src/loitering_detector/stream/strategy.py`: Orchestrates multi-threaded video stream ingestion.
-    *   `src/loitering_detector/detection/manager.py` & `src/loitering_detector/detection/strategy.py`: Manages model inference and state tracking for multi-object tracking (YOLO, BYTETracker, BoT-SORT).
+    *   `src/loitering_detector/detection/manager.py`, `src/loitering_detector/detection/strategy.py`, `src/loitering_detector/detection/providers/`, `src/loitering_detector/detection/results.py`, & `src/loitering_detector/detection/trackers.py`: Manages model inference providers (e.g., Ultralytics YOLO) and multi-object tracking (Supervision ByteTrack).
     *   `src/loitering_detector/infrastructure/persistence/redis.py`: Implements `RedisStateRepository` using atomic Lua scripts to synchronize tracking states.
     *   `src/loitering_detector/visualization/visualizer.py`: Provides local display and overlay rendering.
 
@@ -89,7 +89,10 @@ src/
     │   └── persistence/         # Redis and InMemory repository implementations
     ├── detection/               # Computer Vision models and trackers
     │   ├── manager.py           # Multi-stream detection coordinator
-    │   └── strategy.py          # YOLO and tracker strategy wrappers
+    │   ├── providers/           # Detection provider implementations (Ultralytics)
+    │   ├── results.py           # Decoupled detection results DTOs
+    │   ├── strategy.py          # Abstract detection strategy interface
+    │   └── trackers.py          # Tracker interfaces and Supervision ByteTrack
     ├── stream/                  # Live camera and video stream ingestion
     │   ├── manager.py           # Multi-stream ingestion orchestrator
     │   └── strategy.py          # Threaded ingestion implementations
@@ -202,10 +205,10 @@ To avoid race conditions, network roundtrip overhead, and stale data drift, `Red
 
 The structural choices of the `loitering-detector` system were guided by performance requirements, robust state recovery, and testability. The primary architecture design records (ADRs) include:
 
-### ADR 1: Multi-Object Tracking Engine (BYTETrack / BoT-SORT)
+### ADR 1: Multi-Object Tracking Engine (Supervision ByteTrack)
 *   **Context:** Bounding boxes output by YOLO inference represent isolated, single-frame detections. Without tracking ID persistence, the system cannot measure the dwell time of individual targets.
-*   **Decision:** Integrate abstract, uniform tracking wrappers around BYTETrack and BoT-SORT algorithms.
-*   **Trade-off:** BYTETrack associates targets using simple Kalman filter predictions, yielding extremely fast CPU processing times. BoT-SORT incorporates camera motion compensation, reducing track degradation in shaking cameras but introducing higher CPU/GPU overhead. Using a segregated, per-stream tracking manager prevents ID collisions across multiple cameras.
+*   **Decision:** Integrate abstract, uniform tracking interfaces (`TrackerInterface`) standardized on Supervision ByteTrack (`SupervisionByteTrack`).
+*   **Trade-off:** ByteTrack associates targets using simple Kalman filter predictions, yielding fast CPU processing times and low latency overhead while maintaining robust ID persistence across frames. Using a segregated, per-stream tracking manager prevents ID collisions across multiple cameras.
 
 ### ADR 2: Decoupled Spatial Engine (`GeometryEngine`)
 *   **Context:** Calculating polygonal Region of Interest (ROI) containment is a spatial operation. Tying it directly to OpenCV (`cv2`) creates hard dependencies that block unit testing in headless CI environments.

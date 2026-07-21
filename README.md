@@ -4,7 +4,7 @@ Real-time computer vision system for loitering detection and tracking in polygon
 
 ---
 
-Loitering Detector is a computer vision-driven monitoring system designed to automatically identify when entities (e.g., persons) remain inside designated zones (ROIs) longer than a defined threshold. By coupling state-of-the-art object detection (YOLO) and multi-object tracking (BYTETrack/BoT-SORT), the system operates asynchronously to emit actionable security and operational alerts, eliminating the need for continuous manual surveillance.
+Loitering Detector is a computer vision-driven monitoring system designed to automatically identify when entities (e.g., persons) remain inside designated zones (ROIs) longer than a defined threshold. By coupling state-of-the-art object detection (YOLO) and multi-object tracking (Supervision ByteTrack), the system operates asynchronously to emit actionable security and operational alerts, eliminating the need for continuous manual surveillance.
 
 ---
 

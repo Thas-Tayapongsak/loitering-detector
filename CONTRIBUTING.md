@@ -112,7 +112,7 @@ To prevent tests from depending on external environments, the network is strictl
 1.  **Global Socket Block:** Outgoing socket connections are intercepted during test runs by the `block_network_sockets` fixture located in `tests/unit/backend/conftest.py`. Attempting to communicate over raw network ports will raise a `RuntimeError`.
 2.  **Redis Network Stubbing:** The `stub_redis_network` fixture automatically patches `redis.Redis` globally. This ensures that any infrastructure adapters or database client initializations do not connect to a real Redis server.
 3.  **Custom Redis Assertions:** If your test relies on verifying specific Redis keys, scripting, or data flow, use the `mock_redis` fixture, which provides a standard mocked client and resets after execution.
-4.  **No Model Weights Downloads:** When testing Computer Vision/YOLO components, tests must not download weight files (`.pt` or `.onnx`). Mock YOLO class loading and prediction methods via `unittest.mock.patch` (specifically patching `loitering_detector.detection.strategy.YOLO`) to isolate model inference logic from physical model resources.
+4.  **No Model Weights Downloads:** When testing Computer Vision/YOLO components, tests must not download weight files (`.pt` or `.onnx`). Mock YOLO class loading and prediction methods via `unittest.mock.patch` (specifically patching `loitering_detector.detection.providers.ultralytics.YOLO`) to isolate model inference logic from physical model resources.
 
 ### Unit Testing Conventions (FIRST Principles)
 
