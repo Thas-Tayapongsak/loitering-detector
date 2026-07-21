@@ -9,11 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added `DetectionResult` and `BoundingBox` models for decoupled inference output.
-- Introduced `TrackerInterface` and `SupervisionByteTrack` implementing Supervision ByteTrack tracking backend.
+- Integrated Roboflow `trackers` package (`TrackersByteTrack`) for stateful ByteTrack multi-object tracking.
 
 ### Changed
 - Decoupled detection providers by moving `YOLODetection` to `loitering_detector.detection.providers.ultralytics`.
-- Standardized multi-object tracking configuration on Supervision ByteTrack and removed legacy BoT-SORT tracker options.
+- Standardized multi-object tracking configuration on `TrackersByteTrack` and removed legacy BoT-SORT tracker options.
 
 ## [0.3.0] - 2026-07-18
 

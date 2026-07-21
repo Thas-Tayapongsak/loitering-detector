@@ -11,6 +11,7 @@ dependencies = [
     "lapx>=0.5.12",
     "yt-dlp>=2026.3.17",
     "supervision>=0.29.1",
+    "trackers>=2.5.0.post0",
 ]
 
 [project.optional-dependencies]

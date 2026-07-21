@@ -1,11 +1,11 @@
 __all__ = [
     "TrackerInterface",
-    "SupervisionByteTrack",
+    "TrackersByteTrack",
 ]
 
 from abc import ABC, abstractmethod
 
-import supervision as sv
+from trackers import ByteTrackTracker
 
 from loitering_detector.detection.results import DetectionResult
 
@@ -16,24 +16,28 @@ class TrackerInterface(ABC):
         pass
 
 
-class SupervisionByteTrack(TrackerInterface):
+class TrackersByteTrack(TrackerInterface):
     def __init__(
         self,
-        track_activation_threshold: float = 0.25,
         lost_track_buffer: int = 30,
-        minimum_matching_threshold: float = 0.8,
         frame_rate: int = 30,
+        track_activation_threshold: float = 0.7,
+        minimum_consecutive_frames: int = 2,
+        minimum_iou_threshold: float = 0.1,
+        high_conf_det_threshold: float = 0.6,
     ):
-        self.tracker = sv.ByteTrack(
-            track_activation_threshold=track_activation_threshold,
+        self.tracker = ByteTrackTracker(
             lost_track_buffer=lost_track_buffer,
-            minimum_matching_threshold=minimum_matching_threshold,
-            frame_rate=frame_rate,
+            frame_rate=float(frame_rate),
+            track_activation_threshold=track_activation_threshold,
+            minimum_consecutive_frames=minimum_consecutive_frames,
+            minimum_iou_threshold=minimum_iou_threshold,
+            high_conf_det_threshold=high_conf_det_threshold,
         )
 
     def update(self, detection_result: DetectionResult) -> DetectionResult:
         sv_dets = detection_result.to_supervision()
-        updated_dets = self.tracker.update_with_detections(detections=sv_dets)
+        updated_dets = self.tracker.update(detections=sv_dets)
         return DetectionResult.from_supervision(
             detections=updated_dets,
             orig_shape=detection_result.orig_shape,

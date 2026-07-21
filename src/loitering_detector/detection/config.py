@@ -16,7 +16,7 @@ TrackerType
 
 __all__ = [
     "DetectionConfig",
-    "SupervisionByteTrackConfig",
+    "TrackersByteTrackConfig",
     "TrackerType",
 ]
 
@@ -73,23 +73,29 @@ class DetectionConfig(BaseModel):
 
 
 @dataclass(frozen=True)
-class SupervisionByteTrackConfig:
+class TrackersByteTrackConfig:
     """
-    Configuration arguments for Supervision ByteTrack algorithm.
+    Configuration arguments for Roboflow ByteTrackTracker algorithm.
 
     Attributes
     ----------
-    track_activation_threshold : float, default 0.25
-        Detection confidence threshold required to activate a new track.
     lost_track_buffer : int, default 30
         Number of frames to keep a lost track in memory before deletion.
-    minimum_matching_threshold : float, default 0.8
-        Threshold for matching detections to existing tracks.
     frame_rate : int, default 30
         Video frame rate for internal speed and motion estimations.
+    track_activation_threshold : float, default 0.7
+        Detection confidence threshold required to activate a new track.
+    minimum_consecutive_frames : int, default 2
+        Minimum consecutive frame detections required to confirm a new track ID.
+    minimum_iou_threshold : float, default 0.1
+        IoU threshold for matching detections to existing tracks.
+    high_conf_det_threshold : float, default 0.6
+        High-confidence detection threshold for first-stage tracking association.
     """
 
-    track_activation_threshold: float = 0.25
     lost_track_buffer: int = 30
-    minimum_matching_threshold: float = 0.8
     frame_rate: int = 30
+    track_activation_threshold: float = 0.7
+    minimum_consecutive_frames: int = 2
+    minimum_iou_threshold: float = 0.1
+    high_conf_det_threshold: float = 0.6

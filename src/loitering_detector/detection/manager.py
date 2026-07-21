@@ -20,21 +20,21 @@ import numpy as np
 
 from loitering_detector.detection.config import (
     DetectionConfig,
-    SupervisionByteTrackConfig,
+    TrackersByteTrackConfig,
 )
 from loitering_detector.detection.providers.ultralytics import YOLODetection
 from loitering_detector.detection.results import DetectionResult
 from loitering_detector.detection.strategy import DetectionStrategy
 from loitering_detector.detection.trackers import (
-    SupervisionByteTrack,
     TrackerInterface,
+    TrackersByteTrack,
 )
 
 logger = logging.getLogger(__name__)
 
 # Registry mapping tracker names to their classes and default argument classes.
 TRACKER_REGISTRY = {
-    "bytetrack": (SupervisionByteTrack, SupervisionByteTrackConfig),
+    "bytetrack": (TrackersByteTrack, TrackersByteTrackConfig),
 }
 
 
