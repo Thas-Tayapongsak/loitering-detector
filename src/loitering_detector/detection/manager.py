@@ -17,23 +17,24 @@ import logging
 from collections.abc import Callable
 
 import numpy as np
-import torch
-from ultralytics.engine.results import Results
-from ultralytics.trackers import BOTSORT, BYTETracker
 
 from loitering_detector.detection.config import (
-    BoTSORTArgs,
-    BYTETrackArgs,
     DetectionConfig,
+    SupervisionByteTrackConfig,
 )
-from loitering_detector.detection.strategy import DetectionStrategy, YOLODetection
+from loitering_detector.detection.providers.ultralytics import YOLODetection
+from loitering_detector.detection.results import DetectionResult
+from loitering_detector.detection.strategy import DetectionStrategy
+from loitering_detector.detection.trackers import (
+    SupervisionByteTrack,
+    TrackerInterface,
+)
 
 logger = logging.getLogger(__name__)
 
 # Registry mapping tracker names to their classes and default argument classes.
 TRACKER_REGISTRY = {
-    "bytetrack": (BYTETracker, BYTETrackArgs),
-    "botsort": (BOTSORT, BoTSORTArgs),
+    "bytetrack": (SupervisionByteTrack, SupervisionByteTrackConfig),
 }
 
 
@@ -49,7 +50,7 @@ class DetectionManager:
     Features:
     - Optimizes GPU utilization by processing multiple frames in a single forward pass.
     - Maintains unique tracker states for each active stream to prevent cross-stream ID pollution.
-    - Supports different detection strategies and tracking algorithms (BYTETrack, BoT-SORT).
+    - Supports pluggable detection strategies and Supervision multi-object tracking.
 
     Attributes
     ----------
@@ -57,7 +58,7 @@ class DetectionManager:
         Configuration settings for detection and tracking.
     active_stream_ids : list of int
         List of stream IDs that this manager is currently processing.
-    trackers : dict of int to (BYTETracker or BOTSORT)
+    trackers : dict of int to TrackerInterface
         Active tracker instances mapped by stream ID.
 
     Examples
@@ -75,7 +76,7 @@ class DetectionManager:
         config: DetectionConfig,
         active_stream_ids: list[int],
         strategy: DetectionStrategy | None = None,
-        tracker_factory: Callable[[], BYTETracker | BOTSORT] | None = None,
+        tracker_factory: Callable[[], TrackerInterface] | None = None,
     ):
         """
         Initialize the detection manager.
@@ -98,18 +99,20 @@ class DetectionManager:
         self._strategy: DetectionStrategy = (
             strategy if strategy is not None else self._init_strategy()
         )  # Pluggable detection backend
-        self._tracker_factory: Callable[[], BYTETracker | BOTSORT] = (
+        self._tracker_factory: Callable[[], TrackerInterface] = (
             tracker_factory
             if tracker_factory is not None
             else self._get_default_tracker_factory()
         )  # Factory for per-stream trackers
 
         # Active Tracker State
-        self.trackers: dict[int, BYTETracker | BOTSORT] = {
+        self.trackers: dict[int, TrackerInterface] = {
             stream_id: self._tracker_factory() for stream_id in self.active_stream_ids
         }
 
-    def infer(self, frames: list[np.ndarray], stream_ids: list[int]) -> list[Results]:
+    def infer(
+        self, frames: list[np.ndarray], stream_ids: list[int]
+    ) -> list[DetectionResult]:
         """
         Perform batch inference and update trackers for each stream.
 
@@ -122,7 +125,7 @@ class DetectionManager:
 
         Returns
         -------
-        list of Results
+        list of DetectionResult
             Detection and tracking results for each frame.
 
         Raises
@@ -138,10 +141,11 @@ class DetectionManager:
 
         results = self._strategy.predict(frames)
 
+        updated_results = []
         for result, stream_id in zip(results, stream_ids, strict=True):
-            self._update_result_with_tracks(result, stream_id)
+            updated_results.append(self._update_result_with_tracks(result, stream_id))
 
-        return results
+        return updated_results
 
     def stop(self) -> None:
         """
@@ -153,32 +157,23 @@ class DetectionManager:
         self.trackers.clear()
         self._strategy.stop()
 
-    def _update_result_with_tracks(self, result: Results, stream_id: int) -> None:
+    def _update_result_with_tracks(
+        self, result: DetectionResult, stream_id: int
+    ) -> DetectionResult:
         """Update a prediction result with identities from the tracker."""
-        if result.boxes is None or result.boxes.data is None:
-            return
-
         tracker = self.trackers.get(stream_id)
         if tracker is None:
             raise ValueError(f"Tracker not found for stream_id: {stream_id}")
 
-        tracks = tracker.update(result.boxes, result.orig_img)
+        return tracker.update(result)
 
-        # Update the result boxes with tracking data if available
-        if len(tracks) > 0 and len(tracks[0]) >= 7:
-            result.update(
-                boxes=torch.as_tensor(tracks[:, :7], device=result.boxes.data.device)
-            )
-        else:
-            result.update(boxes=torch.empty(0, 7, device=result.boxes.data.device))
-
-    def _get_default_tracker_factory(self) -> Callable[[], BYTETracker | BOTSORT]:
+    def _get_default_tracker_factory(self) -> Callable[[], TrackerInterface]:
         """Retrieve the default tracker factory from the registry."""
         tracker_entry = TRACKER_REGISTRY.get(self.config.tracker)
         if tracker_entry is None:
             raise ValueError(f"Unknown tracker: {self.config.tracker}")
-        cls, args_cls = tracker_entry
-        return lambda: cls(args_cls())  # type: ignore[no-untyped-call]
+        cls, _ = tracker_entry
+        return lambda: cls()
 
     def _init_strategy(self) -> DetectionStrategy:
         """Initialize the default detection strategy."""

@@ -18,15 +18,23 @@ YOLODetection
 
 import logging
 
-from .config import DetectionConfig
+from .config import DetectionConfig, SupervisionByteTrackConfig
 from .manager import DetectionManager
-from .strategy import DetectionStrategy, YOLODetection
+from .providers.ultralytics import YOLODetection
+from .results import BoundingBox, DetectionResult
+from .strategy import DetectionStrategy
+from .trackers import SupervisionByteTrack, TrackerInterface
 
 __all__ = [
     "DetectionManager",
     "DetectionConfig",
+    "SupervisionByteTrackConfig",
     "DetectionStrategy",
     "YOLODetection",
+    "BoundingBox",
+    "DetectionResult",
+    "TrackerInterface",
+    "SupervisionByteTrack",
 ]
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())

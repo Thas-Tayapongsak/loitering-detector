@@ -145,17 +145,19 @@ We follow a structured branching and pull request model to maintain repository s
 
 ### Commit Conventions
 
-This project follows the **Conventional Commits** specification to auto-generate release changelogs and determine version bumps:
+This project follows the **Conventional Commits** specification to auto-generate release changelogs and determine automated Semantic Version (`MAJOR.MINOR.PATCH`) bumps. Non-bumping prefix is preferred, unless changes made warrant version bumping:
 
-*   `feat: ...` -> Represents a new feature or user-facing change.
-*   `fix: ...` -> Represents a bug fix.
-*   `docs: ...` -> Represents documentation modifications.
-*   `style: ...` -> Non-functional style edits (whitespace, formatting).
-*   `refactor: ...` -> Code modifications that do not fix bugs or add features.
-*   `test: ...` -> Adding missing tests or correcting existing tests.
-*   `chore: ...` -> Routine tasks, dependency version updates, or build process adjustments.
+*   `feat: ...` -> New feature or capability (**triggers MINOR version bump**, e.g. `0.3.0` -> `0.4.0`).
+*   `fix: ...` -> Bug fix (**triggers PATCH version bump**, e.g. `0.3.0` -> `0.3.1`).
+*   `feat!: ...` or `fix!: ...` (or `BREAKING CHANGE:` in footer) -> Breaking API or behavior change (**triggers MAJOR version bump**, e.g. `0.3.0` -> `1.0.0`).
+*   `docs: ...` -> Documentation modifications (*no version bump*).
+*   `style: ...` -> Non-functional style edits like formatting or whitespace (*no version bump*).
+*   `refactor: ...` -> Code reorganization without external behavior changes (*no version bump*).
+*   `test: ...` -> Adding missing tests or correcting existing tests (*no version bump*).
+*   `chore: ...` -> Routine tasks, dependency version updates, or build process adjustments (*no version bump*).
 
 *Example:* `feat: add custom polygonal region of interest calculations`
+
 
 ### Pull Request & Review Checklist
 

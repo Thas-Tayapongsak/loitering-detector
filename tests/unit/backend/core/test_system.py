@@ -503,14 +503,22 @@ class TestUpdateLoiteringEngine:
         """Delegates to loitering_engine.update after translating results."""
         from loitering_detector.core.interfaces import DetectedObject
         from loitering_detector.core.system import LoiteringDetectionSystem
+        from loitering_detector.detection.results import BoundingBox, DetectionResult
 
         system = LoiteringDetectionSystem(system_config)
         system.loitering_engine = MagicMock()
         system.roi_polygons = {1: [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)]}
 
-        mock_result = MagicMock()
-        mock_result.orig_shape = (1080, 1920)
-        mock_result.boxes.data = [[100, 100, 200, 200, 5, 0.9, 0]]
+        box = BoundingBox(
+            x1=100.0,
+            y1=100.0,
+            x2=200.0,
+            y2=200.0,
+            confidence=0.9,
+            class_id=0,
+            track_id=5,
+        )
+        mock_result = DetectionResult(boxes=[box], orig_shape=(1080, 1920))
         batch = {1: mock_result}
 
         system._update_loitering_engine(batch)
@@ -527,14 +535,22 @@ class TestUpdateLoiteringEngine:
     def test_catches_redis_errors(self, system_config) -> None:
         """Redis errors during update are caught and logged."""
         from loitering_detector.core.system import LoiteringDetectionSystem
+        from loitering_detector.detection.results import BoundingBox, DetectionResult
 
         system = LoiteringDetectionSystem(system_config)
         system.loitering_engine = MagicMock()
         system.loitering_engine.update.side_effect = redis.ConnectionError("fail")
 
-        mock_result = MagicMock()
-        mock_result.orig_shape = (1080, 1920)
-        mock_result.boxes.data = [[100, 100, 200, 200, 5, 0.9, 0]]
+        box = BoundingBox(
+            x1=100.0,
+            y1=100.0,
+            x2=200.0,
+            y2=200.0,
+            confidence=0.9,
+            class_id=0,
+            track_id=5,
+        )
+        mock_result = DetectionResult(boxes=[box], orig_shape=(1080, 1920))
 
         system._update_loitering_engine({1: mock_result})  # Should not raise
 

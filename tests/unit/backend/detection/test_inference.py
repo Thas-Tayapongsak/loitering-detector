@@ -10,7 +10,7 @@ from ultralytics.engine.results import Results
 
 from loitering_detector.detection.config import DetectionConfig, TrackerType
 from loitering_detector.detection.manager import DetectionManager
-from loitering_detector.detection.strategy import YOLODetection
+from loitering_detector.detection.providers.ultralytics import YOLODetection
 
 # Constants
 
@@ -56,7 +56,7 @@ def mock_results() -> MagicMock:
 class TestDetectionInference:
     """Tests for the DetectionManager and YOLODetection strategy including batch inference and tracking isolation."""
 
-    @patch("loitering_detector.detection.strategy.YOLO")
+    @patch("ultralytics.YOLO")
     def test_yolo_model_loading(
         self, mock_yolo_cls: MagicMock, detection_config: DetectionConfig
     ) -> None:
@@ -74,7 +74,7 @@ class TestDetectionInference:
         assert strategy.model is not None
         mock_yolo_cls.assert_called_with(detection_config.path)
 
-    @patch("loitering_detector.detection.strategy.YOLO")
+    @patch("ultralytics.YOLO")
     def test_detection_manager_init(
         self, mock_yolo_cls: MagicMock, detection_config: DetectionConfig
     ) -> None:
@@ -129,7 +129,7 @@ class TestDetectionInference:
                 frames=[np.zeros((10, 10, 3))], stream_ids=[STREAM_1_ID, STREAM_2_ID]
             )
 
-    @patch("loitering_detector.detection.strategy.YOLO")
+    @patch("ultralytics.YOLO")
     def test_yolo_strategy_predict(
         self, mock_yolo_cls: MagicMock, detection_config: DetectionConfig
     ) -> None:
@@ -141,11 +141,24 @@ class TestDetectionInference:
         Then: the underlying model receives the correct hyperparameters
         """
         mock_yolo = mock_yolo_cls.return_value
+        mock_raw = MagicMock()
+        mock_raw.orig_shape = (100, 100)
+        mock_raw.orig_img = None
+        mock_raw.obb = None
+        mock_raw.masks = None
+        mock_raw.names = {0: "person"}
+        mock_raw.boxes = MagicMock()
+        mock_raw.boxes.xyxy = torch.tensor([[0, 0, 10, 10]], dtype=torch.float32)
+        mock_raw.boxes.conf = torch.tensor([0.9], dtype=torch.float32)
+        mock_raw.boxes.cls = torch.tensor([0], dtype=torch.int64)
+        mock_raw.boxes.id = None
+        mock_yolo.predict.return_value = [mock_raw]
+
         strategy = YOLODetection(detection_config)
         frames = [np.zeros((100, 100, 3), dtype=np.uint8)]
 
         # When: performing a prediction
-        strategy.predict(frames)
+        results = strategy.predict(frames)
 
         # Then: hyperparameters match the configuration
         mock_yolo.predict.assert_called_with(
@@ -156,6 +169,7 @@ class TestDetectionInference:
             conf=DEFAULT_CONF,
             imgsz=DEFAULT_IMGSZ,
         )
+        assert len(results) == 1
 
     @patch("loitering_detector.detection.manager.TRACKER_REGISTRY")
     def test_tracker_selection(
@@ -164,12 +178,12 @@ class TestDetectionInference:
         """
         Verify that the specified tracking algorithm is correctly instantiated from the registry.
 
-        Given: a configuration specifying the "botsort" tracker
+        Given: a configuration specifying the "bytetrack" tracker
         When: the DetectionManager is initialized
-        Then: the tracker class associated with "botsort" is instantiated
+        Then: the tracker class associated with "bytetrack" is instantiated
         """
-        # Given: "botsort" configuration
-        detection_config.tracker = TrackerType.BOTSORT
+        # Given: "bytetrack" configuration
+        detection_config.tracker = TrackerType.BYTETRACK
         mock_tracker_cls = MagicMock()
         mock_args_cls = MagicMock()
         mock_registry.get.return_value = (mock_tracker_cls, mock_args_cls)
@@ -179,16 +193,15 @@ class TestDetectionInference:
             detection_config, active_stream_ids=[STREAM_1_ID], strategy=MagicMock()
         )
 
-        # Then: the botsort tracker is instantiated
+        # Then: the bytetrack tracker is instantiated
         mock_tracker_cls.assert_called()
-        assert manager.config.tracker == "botsort"
+        assert manager.config.tracker == "bytetrack"
 
     @patch("loitering_detector.detection.manager.TRACKER_REGISTRY")
     def test_id_persistence_tracking(
         self,
         mock_registry: MagicMock,
         detection_config: DetectionConfig,
-        mock_results: MagicMock,
     ) -> None:
         """
         Verify that object tracking IDs are correctly persisted and mapped onto detection results across frames.
@@ -197,27 +210,38 @@ class TestDetectionInference:
         When: a frame is processed through the manager
         Then: the resulting detection is updated with Track ID 5
         """
+        from loitering_detector.detection.results import BoundingBox, DetectionResult
+
+        box_in = BoundingBox(x1=0, y1=0, x2=10, y2=10, confidence=0.9, class_id=0)
+        box_out = BoundingBox(
+            x1=0, y1=0, x2=10, y2=10, confidence=0.9, class_id=0, track_id=TRACK_ID
+        )
+
         # Given: a tracker that identifies an object as ID 5
         mock_tracker = MagicMock()
-        # Mock tracker update to return [x1, y1, x2, y2, id, conf, cls]
-        # TC0009 requires tracking ID 5
-        mock_tracker.update.return_value = np.array([[0, 0, 10, 10, 5, 0.9, 0]])
+        mock_tracker.update.return_value = DetectionResult(
+            boxes=[box_out], orig_shape=(100, 100)
+        )
 
         mock_tracker_cls = MagicMock(return_value=mock_tracker)
         mock_args_cls = MagicMock()
         mock_registry.get.return_value = (mock_tracker_cls, mock_args_cls)
 
+        mock_result = DetectionResult(boxes=[box_in], orig_shape=(100, 100))
+
         strategy = MagicMock()
-        strategy.predict.return_value = [mock_results]
+        strategy.predict.return_value = [mock_result]
 
         manager = DetectionManager(
             detection_config, active_stream_ids=[STREAM_1_ID], strategy=strategy
         )
 
         # When: processing a frame
-        manager.infer(frames=[np.zeros((100, 100, 3))], stream_ids=[STREAM_1_ID])
+        results = manager.infer(
+            frames=[np.zeros((100, 100, 3))], stream_ids=[STREAM_1_ID]
+        )
 
         # Then: the detection results are updated with the tracker ID 5
-        assert mock_results.update.called
-        updated_boxes = mock_results.update.call_args[1]["boxes"]
-        assert updated_boxes[0, 4] == TRACK_ID
+        assert len(results) == 1
+        assert len(results[0].boxes) == 1
+        assert results[0].boxes[0].track_id == TRACK_ID

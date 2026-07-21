@@ -4,8 +4,8 @@ import time
 from collections.abc import Generator, Mapping
 from types import TracebackType
 
+import numpy as np
 import redis
-from ultralytics.engine.results import Results
 
 from loitering_detector.config import SystemConfig
 from loitering_detector.core.alerts import AlertManager
@@ -16,6 +16,7 @@ from loitering_detector.core.interfaces import (
 )
 from loitering_detector.core.loitering import LoiteringEngine
 from loitering_detector.detection import DetectionManager
+from loitering_detector.detection.results import DetectionResult
 from loitering_detector.stream import StreamManager
 
 logger = logging.getLogger(__name__)
@@ -175,13 +176,13 @@ class LoiteringDetectionSystem:
         self._stop_detector()
         self.loitering_engine.disconnect()
 
-    def detect(self) -> Generator[dict[int, Results] | None]:
+    def detect(self) -> Generator[dict[int, DetectionResult] | None]:
         """
         Main detection loop that processes frames from all active streams.
 
         Yields
         ------
-        dict[int, Results] or None
+        dict[int, DetectionResult] or None
             A mapping of stream IDs to detection results for each processed batch,
             or None if the loop is sleeping between samples.
         """
@@ -297,7 +298,7 @@ class LoiteringDetectionSystem:
 
     def _batch_infer_results(
         self, streams: list[StreamManager]
-    ) -> dict[int, Results] | None:
+    ) -> dict[int, DetectionResult] | None:
         """Acquire frames from running streams and perform inference."""
         running_streams = [s for s in streams if s.is_running]
         frames = [s.read() for s in running_streams]
@@ -312,6 +313,12 @@ class LoiteringDetectionSystem:
         if not valid_frames:
             return None
 
+        return self._detect_step(valid_streams, valid_frames)
+
+    def _detect_step(
+        self, valid_streams: list[StreamManager], valid_frames: list[np.ndarray]
+    ) -> dict[int, DetectionResult] | None:
+        """Perform detection and tracking on a batch of valid frames."""
         if self.detector is None:
             return None
 
@@ -319,30 +326,26 @@ class LoiteringDetectionSystem:
         results = self.detector.infer(valid_frames, valid_stream_ids)
         return dict(zip(valid_stream_ids, results, strict=True))
 
-    def _update_loitering_engine(self, batch_results: Mapping[int, Results]) -> None:
+    def _update_loitering_engine(
+        self, batch_results: Mapping[int, DetectionResult]
+    ) -> None:
         """Update the loitering engine with fresh detection results."""
         try:
             detections: dict[int, list[DetectedObject]] = {}
             for stream_id, result in batch_results.items():
                 detections[stream_id] = []
-                if result.boxes is not None and result.boxes.data is not None:
-                    orig_h, orig_w = result.orig_shape
-                    import numpy as np
-
-                    boxes = np.array(result.boxes.data)
-                    for box in boxes:
-                        if len(box) >= 7:
-                            track_id = int(box[4])
-                            x_center = ((box[0] + box[2]) / 2.0) / orig_w
-                            y_bottom = box[3] / orig_h
-
-                            detections[stream_id].append(
-                                DetectedObject(
-                                    track_id=track_id,
-                                    x_center=x_center,
-                                    y_bottom=y_bottom,
-                                )
+                orig_h, orig_w = result.orig_shape
+                for box in result.boxes:
+                    if box.is_tracked and box.track_id is not None:
+                        x_center = ((box.x1 + box.x2) / 2.0) / orig_w
+                        y_bottom = box.y2 / orig_h
+                        detections[stream_id].append(
+                            DetectedObject(
+                                track_id=box.track_id,
+                                x_center=x_center,
+                                y_bottom=y_bottom,
                             )
+                        )
             self.loitering_engine.update(detections, self.roi_polygons)
         except (redis.ConnectionError, redis.TimeoutError) as e:
             logger.error("Redis error in detect loop: %s", e)

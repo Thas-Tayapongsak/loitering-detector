@@ -10,6 +10,7 @@ dependencies = [
     "redis>=7.4.0",
     "lapx>=0.5.12",
     "yt-dlp>=2026.3.17",
+    "supervision>=0.29.1",
 ]
 
 [project.optional-dependencies]
@@ -110,6 +111,8 @@ module = [
     "test_loitering",
     "test_alerts",
     "test_config",
+    "test_results",
+    "test_trackers",
     "conftest"
 ]
 disallow_untyped_defs = false

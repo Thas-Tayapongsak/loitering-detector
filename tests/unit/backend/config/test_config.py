@@ -33,7 +33,7 @@ STREAM_NAME = "test_stream"
 
 DEFAULT_IMGSZ = 640
 DEFAULT_CONF = 0.5
-DEFAULT_TRACKER = "botsort"
+DEFAULT_TRACKER = "bytetrack"
 
 
 # Fixtures

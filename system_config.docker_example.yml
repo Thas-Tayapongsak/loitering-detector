@@ -1,5 +1,5 @@
 detection:
-  tracker: 'botsort'
+  tracker: 'bytetrack'
   path: 'yolo26n.pt'
   imgsz: 640
   conf: 0.3

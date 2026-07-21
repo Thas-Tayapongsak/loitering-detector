@@ -25,7 +25,7 @@ Defines parameters for model inference, target categories, and multi-object trac
 | `path` | String | *Required* | Path to the local YOLO weights file (e.g., `yolo26n.pt`, `yolov8n.onnx`, or TensorRT engine). |
 | `imgsz` | Integer | `640` | Input image size width/height for the detection model. Must be greater than 0. |
 | `conf` | Float | `0.5` | Confidence threshold for object detection. Values must fall within the range `[0.0, 1.0]`. |
-| `tracker` | String | `bytetrack` | Multi-object tracking algorithm to use. Supported values: `bytetrack`, `botsort`. |
+| `tracker` | String | `bytetrack` | Multi-object tracking algorithm to use. Supported value: `bytetrack`. |
 | `classes` | List [Int] | `[0]` | List of COCO dataset class IDs to detect and track. `0` corresponds to "person". |
 
 ### 3. Loitering Logic Parameters (`loitering`)

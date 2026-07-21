@@ -43,3 +43,4 @@ work_dirs/
 
 # Project Specific
 docs_internal/
+.agents/

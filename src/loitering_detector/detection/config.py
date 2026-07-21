@@ -2,25 +2,21 @@
 Configuration schemas for detection and tracking.
 
 Provides Pydantic and dataclass models for configuring detection models
-(e.g., YOLO) and multi-object tracking algorithms (e.g., BYTETrack,
-BoT-SORT).
+(e.g., YOLO) and multi-object tracking algorithms (e.g., Supervision ByteTrack).
 
 Classes
 -------
 DetectionConfig
     Primary configuration for the detection backend.
-BYTETrackArgs
-    Arguments for the BYTETrack tracker algorithm.
-BoTSORTArgs
-    Arguments for the BoT-SORT tracker algorithm.
+SupervisionByteTrackConfig
+    Arguments for the Supervision ByteTrack tracker algorithm.
 TrackerType
     Supported multi-object tracking algorithms.
 """
 
 __all__ = [
     "DetectionConfig",
-    "BYTETrackArgs",
-    "BoTSORTArgs",
+    "SupervisionByteTrackConfig",
     "TrackerType",
 ]
 
@@ -32,7 +28,6 @@ from pydantic import BaseModel, Field, FilePath
 
 class TrackerType(StrEnum):
     BYTETRACK = "bytetrack"
-    BOTSORT = "botsort"
 
 
 class DetectionConfig(BaseModel):
@@ -40,8 +35,7 @@ class DetectionConfig(BaseModel):
     Configuration for the detection manager and strategies.
 
     Defines the parameters for model inference and tracking selection.
-    Compatible with Ultralytics YOLO models and various tracking
-    backends.
+    Compatible with detection strategies and Supervision multi-object tracking.
 
     Attributes
     ----------
@@ -51,7 +45,7 @@ class DetectionConfig(BaseModel):
         Input image size for the detection model (must be > 0).
     conf : float, optional, default 0.5
         Confidence threshold for detections [0.0, 1.0].
-    tracker : {"bytetrack", "botsort"}, optional, default "bytetrack"
+    tracker : {"bytetrack"}, optional, default "bytetrack"
         Object tracking algorithm to use.
     classes : list of int, optional, default [0]
         List of class IDs to detect (e.g., [0] for persons).
@@ -67,7 +61,7 @@ class DetectionConfig(BaseModel):
     >>> config = DetectionConfig(
     ...     path="models/yolov8s.engine",
     ...     classes=[0, 2],
-    ...     tracker="botsort"
+    ...     tracker="bytetrack"
     ... )
     """
 
@@ -79,41 +73,23 @@ class DetectionConfig(BaseModel):
 
 
 @dataclass(frozen=True)
-class BYTETrackArgs:
+class SupervisionByteTrackConfig:
     """
-    Arguments for the BYTETrack tracker algorithm.
+    Configuration arguments for Supervision ByteTrack algorithm.
 
-    Taken from ultralytics/cfg/trackers/bytetrack.yaml
-    """
-
-    tracker_type: str = "bytetrack"
-    track_high_thresh: float = 0.25
-    track_low_thresh: float = 0.1
-    new_track_thresh: float = 0.25
-    track_buffer: int = 30
-    match_thresh: float = 0.8
-    fuse_score: bool = True
-
-
-@dataclass(frozen=True)
-class BoTSORTArgs:
-    """
-    Arguments for the BoT-SORT tracker algorithm.
-
-    Taken from ultralytics/cfg/trackers/botsort.yaml
+    Attributes
+    ----------
+    track_activation_threshold : float, default 0.25
+        Detection confidence threshold required to activate a new track.
+    lost_track_buffer : int, default 30
+        Number of frames to keep a lost track in memory before deletion.
+    minimum_matching_threshold : float, default 0.8
+        Threshold for matching detections to existing tracks.
+    frame_rate : int, default 30
+        Video frame rate for internal speed and motion estimations.
     """
 
-    tracker_type: str = "botsort"
-    track_high_thresh: float = 0.25
-    track_low_thresh: float = 0.1
-    new_track_thresh: float = 0.25
-    track_buffer: int = 30
-    match_thresh: float = 0.8
-    fuse_score: bool = True
-    # BoT-SORT specifics
-    gmc_method: str = "sparseOptFlow"
-    # ReID model related thresh
-    proximity_thresh: float = 0.5
-    appearance_thresh: float = 0.8
-    with_reid: bool = False
-    model: str = "auto"
+    track_activation_threshold: float = 0.25
+    lost_track_buffer: int = 30
+    minimum_matching_threshold: float = 0.8
+    frame_rate: int = 30
